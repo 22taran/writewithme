@@ -1,0 +1,114 @@
+/* Quill Editor Styles */
+.ql-container {
+    height: calc(100vh - 150px);
+    border: none !important;
+    background: var(--primary-bg);
+    border-radius: var(--border-radius);
+}
+
+.ql-toolbar {
+    border: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    background: var(--primary-bg);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+/* Quill toolbar button styling with new color scheme */
+.ql-snow .ql-stroke {
+    stroke: var(--text-muted);
+}
+
+.ql-snow .ql-fill {
+    fill: var(--text-muted);
+}
+
+.ql-snow .ql-picker {
+    color: var(--text-muted);
+}
+
+.ql-snow .ql-picker-options {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+}
+
+.ql-snow .ql-picker-item:hover,
+.ql-snow .ql-picker-label:hover {
+    color: var(--accent-primary);
+}
+
+.ql-snow .ql-picker-item.ql-selected,
+.ql-snow .ql-picker-label.ql-active {
+    color: var(--accent-primary);
+}
+
+.ql-snow .ql-tooltip {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-md);
+    color: var(--text-color);
+}
+
+.ql-snow .ql-tooltip a {
+    color: var(--accent-primary);
+}
+
+.ql-editor {
+    padding: var(--spacing-xl);
+    font-size: var(--font-size-base);
+    line-height: 1.8;
+}
+
+/* Quill Page Styling for 8.5x11 (Letter) */
+.quill-page {
+    width: 816px;
+    min-height: 1056px;
+    margin: 32px auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    padding: 80px 70px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+/* Ensure Quill's editor fits the page look */
+#writeEditor.quill-page .ql-container,
+#editEditor.quill-page .ql-container {
+    min-height: 900px;
+    border: none;
+    background: transparent;
+    border-radius: 0;
+}
+
+#writeEditor.quill-page .ql-editor,
+#editEditor.quill-page .ql-editor {
+    font-size: 12pt;
+    padding: 0;
+    min-height: 900px;
+}
+
+/* Custom labels for Quill font size dropdown */
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="8pt"]::before  { content: "8pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10pt"]::before { content: "10pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12pt"]::before { content: "12pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14pt"]::before { content: "14pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16pt"]::before { content: "16pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18pt"]::before { content: "18pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24pt"]::before { content: "24pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="36pt"]::before { content: "36pt"; }
+
+/* Also fix the label in the dropdown button itself */
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="8pt"]::before  { content: "8pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10pt"]::before { content: "10pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12pt"]::before { content: "12pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14pt"]::before { content: "14pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16pt"]::before { content: "16pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18pt"]::before { content: "18pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24pt"]::before { content: "24pt"; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="36pt"]::before { content: "36pt"; } 

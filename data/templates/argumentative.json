@@ -1,0 +1,55 @@
+{
+    "name": "Argumentative Essay",
+    "sections": [
+        {
+            "id": "introduction",
+            "title": "Introduction",
+            "description": "Hook, background, and thesis statement",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "background",
+            "title": "Background Information",
+            "description": "Context and necessary information for understanding the argument",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "main-arguments",
+            "title": "Main Arguments",
+            "description": "Your key points supporting your thesis",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "counter-arguments",
+            "title": "Counter Arguments",
+            "description": "Address opposing viewpoints",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "conclusion",
+            "title": "Conclusion",
+            "description": "Restate thesis and summarize main points",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        }
+    ]
+} 

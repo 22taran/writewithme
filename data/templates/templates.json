@@ -1,0 +1,28 @@
+{
+    "templates": [
+        {
+            "id": "argumentative",
+            "name": "Argumentative Essay",
+            "description": "A structured essay that presents and defends a position",
+            "file": "argumentative.json"
+        },
+        {
+            "id": "comparative",
+            "name": "Comparative Essay",
+            "description": "An essay that compares and contrasts two or more subjects",
+            "file": "comparative.json"
+        },
+        {
+            "id": "lab-report",
+            "name": "Lab Report",
+            "description": "A structured report of a scientific experiment",
+            "file": "lab-report.json"
+        },
+        {
+            "id": "test-template",
+            "name": "Test Template",
+            "description": "A template to test editable title and description functionality",
+            "file": "test-template.json"
+        }
+    ]
+} 

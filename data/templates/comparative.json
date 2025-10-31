@@ -1,0 +1,55 @@
+{
+    "name": "Comparative Essay",
+    "sections": [
+        {
+            "id": "introduction",
+            "title": "Introduction",
+            "description": "Hook, background, and thesis statement",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "subject-a",
+            "title": "First Subject",
+            "description": "Detailed analysis of the first subject",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "subject-b",
+            "title": "Second Subject",
+            "description": "Detailed analysis of the second subject",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "comparison",
+            "title": "Comparison",
+            "description": "Direct comparison of both subjects",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "conclusion",
+            "title": "Conclusion",
+            "description": "Synthesis of comparison and final thoughts",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        }
+    ]
+} 

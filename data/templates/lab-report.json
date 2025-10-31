@@ -1,0 +1,65 @@
+{
+    "name": "Lab Report",
+    "sections": [
+        {
+            "id": "abstract",
+            "title": "Abstract",
+            "description": "Brief summary of the experiment and findings",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "introduction",
+            "title": "Introduction",
+            "description": "Background, purpose, and hypothesis",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "materials",
+            "title": "Materials and Methods",
+            "description": "Equipment, materials, and experimental procedure",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "results",
+            "title": "Results",
+            "description": "Data, observations, and findings",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "discussion",
+            "title": "Discussion",
+            "description": "Analysis of results and their implications",
+            "required": true,
+            "allowMultiple": true,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        },
+        {
+            "id": "conclusion",
+            "title": "Conclusion",
+            "description": "Summary of findings and future directions",
+            "required": true,
+            "allowMultiple": false,
+            "editableTitle": true,
+            "editableDescription": true,
+            "outline": []
+        }
+    ]
+} 
