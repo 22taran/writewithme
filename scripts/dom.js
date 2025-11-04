@@ -352,9 +352,39 @@ class TabManager {
         if (tabId === 'write') {
             this.populateWriteOutline();
         }
+        
+        // If switching to plan tab, restore goal from global state
+        if (tabId === 'plan') {
+            this.restoreGoalFromState();
+        }
 
         this.currentTab = tabId;
         console.log('=== Tab switch complete ===');
+    }
+    
+    restoreGoalFromState() {
+        const goalInput = document.getElementById('assignmentGoal');
+        if (!goalInput) return;
+        
+        // Only restore from state if the input is empty (user hasn't typed anything)
+        // This prevents overwriting unsaved user input when switching tabs
+        const currentValue = goalInput.value.trim();
+        
+        if (currentValue) {
+            // User has typed something - preserve it, don't restore from state
+            console.log('TabManager: Goal input has current value, preserving:', currentValue);
+            return;
+        }
+        
+        // Only restore from state if input is empty
+        const state = this.globalState.getState();
+        if (state && state.metadata && state.metadata.goal) {
+            if (goalInput.value !== state.metadata.goal) {
+                console.log('TabManager: Restoring goal from state (input was empty):', state.metadata.goal);
+                goalInput.value = state.metadata.goal;
+                console.log('TabManager: Goal restored, current value:', goalInput.value);
+            }
+        }
     }
     
     populateWriteOutline() {

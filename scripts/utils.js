@@ -10,6 +10,7 @@ const DEFAULT_PROJECT_SCHEMA = {
     metadata: {
         title: '',
         description: '',
+        goal: '',
         created: null,
         modified: null,
         version: '1.0'

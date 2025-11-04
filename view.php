@@ -149,6 +149,16 @@ echo $OUTPUT->header();
                 <button class="action-btn exit-btn" id="exitBtn">Exit</button>
             </div>
         </div>
+        <!-- Goal Section - Visible on all tabs -->
+        <div class="goal-section">
+            <label for="assignmentGoal" class="goal-label">🎯 Assignment Goal</label>
+            <textarea 
+                id="assignmentGoal" 
+                class="goal-input" 
+                placeholder="What is the main goal of this assignment? (e.g., 'Write a persuasive essay arguing for renewable energy adoption' or 'Create a lab report analyzing chemical reactions')"
+                rows="1"
+            ></textarea>
+        </div>
         <!-- Plan & Organize Tab -->
         <div class="tab-content active" id="plan">
             <?php if (!empty($instance->intro)): ?>

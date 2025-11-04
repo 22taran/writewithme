@@ -177,5 +177,17 @@ function xmldb_writeassistdev_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2025102106, 'writeassistdev');
     }
     
+    // Version 2025102107: Add goal field to metadata table
+    if ($oldversion < 2025102107) {
+        $table = new xmldb_table('writeassistdev_metadata');
+        $field = new xmldb_field('goal', XMLDB_TYPE_TEXT, null, null, null, null, null, 'instructor_instructions');
+        
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102107, 'writeassistdev');
+    }
+    
     return true;
 }

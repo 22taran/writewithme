@@ -37,6 +37,23 @@ class ProjectDataManager {
                 'userid' => $userid
             ]);
             
+            // If metadata doesn't exist, create a default object
+            if (!$metadata) {
+                $metadata = new \stdClass();
+                $metadata->title = '';
+                $metadata->description = '';
+                $metadata->current_tab = 'plan';
+                $metadata->instructor_instructions = '';
+                $metadata->goal = '';
+                $metadata->created_at = time();
+                $metadata->modified_at = time();
+            } else {
+                // Ensure goal is always a string, never null
+                if (!isset($metadata->goal) || $metadata->goal === null) {
+                    $metadata->goal = '';
+                }
+            }
+            
             // Load ideas
             $ideas = $DB->get_records('writeassistdev_ideas', [
                 'writeassistdevid' => $writeassistdevid,
@@ -166,14 +183,21 @@ class ProjectDataManager {
      */
     private function reconstructProject($metadata, $ideas, $content, $chat) {
         // Convert database records back to JSON structure
+        // Handle null metadata (new project)
+        
+        // Log goal value for debugging
+        $goalValue = ($metadata && isset($metadata->goal) && $metadata->goal !== null) ? $metadata->goal : '';
+        error_log('ProjectDataManager::reconstructProject - Goal value from DB: ' . var_export($goalValue, true));
+        
         $project = [
             'metadata' => [
-                'title' => $metadata->title ?? '',
-                'description' => $metadata->description ?? '',
-                'currentTab' => $metadata->current_tab ?? 'plan',
-                'instructorInstructions' => $metadata->instructor_instructions ?? '',
-                'created' => $metadata->created_at ?? date('c'),
-                'modified' => $metadata->modified_at ?? date('c')
+                'title' => ($metadata && isset($metadata->title)) ? $metadata->title : '',
+                'description' => ($metadata && isset($metadata->description)) ? $metadata->description : '',
+                'currentTab' => ($metadata && isset($metadata->current_tab)) ? $metadata->current_tab : 'plan',
+                'instructorInstructions' => ($metadata && isset($metadata->instructor_instructions)) ? $metadata->instructor_instructions : '',
+                'goal' => $goalValue,
+                'created' => ($metadata && isset($metadata->created_at)) ? date('c', $metadata->created_at) : date('c'),
+                'modified' => ($metadata && isset($metadata->modified_at)) ? date('c', $metadata->modified_at) : date('c')
             ],
             'plan' => [
                 'ideas' => array_map(function($idea) {
@@ -238,9 +262,10 @@ class ProjectDataManager {
             'title' => $metadata['title'] ?? '',
             'description' => $metadata['description'] ?? '',
             'current_tab' => $metadata['currentTab'] ?? 'plan',
-                'instructor_instructions' => $metadata['instructorInstructions'] ?? '',
-                'created_at' => $now,
-                'modified_at' => $now
+            'instructor_instructions' => $metadata['instructorInstructions'] ?? '',
+            'goal' => $metadata['goal'] ?? '',
+            'created_at' => $now,
+            'modified_at' => $now
         ];
         
         $existing = $DB->get_record('writeassistdev_metadata', [

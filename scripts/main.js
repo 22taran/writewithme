@@ -111,9 +111,26 @@ class ProjectManager {
         try {
             const project = await this.api.loadProject();
             if (project) {
+                console.log('=== ProjectManager.loadProject() START ===');
+                console.log('Loaded project from API:', JSON.stringify(project, null, 2));
+                console.log('Goal in loaded project:', project.metadata?.goal);
+                console.log('Goal type:', typeof project.metadata?.goal);
+                
+                // Ensure goal is set before setting state
+                if (!project.metadata) {
+                    project.metadata = {};
+                }
+                if (project.metadata.goal === undefined || project.metadata.goal === null) {
+                    project.metadata.goal = '';
+                } else {
+                    project.metadata.goal = String(project.metadata.goal);
+                }
+                console.log('Goal after normalization:', project.metadata.goal);
+                
                 this.globalState.setState(project);
                 // Trigger 'ready' event so modules can restore their UI
                 this.globalState.notifyListeners('ready', project);
+                console.log('=== ProjectManager.loadProject() END ===');
             } else {
                 console.warn('No existing project found, creating new one');
                 this.createNewProject();
@@ -170,13 +187,34 @@ class ProjectManager {
             }
         });
         
-        // Update metadata with current tab and instructor instructions
+        // Get goal from UI element (always read current value for accurate saves)
+        // This ensures we always save the latest user input, matching Google Docs behavior
+        const goalInput = document.getElementById('assignmentGoal');
+        let goal = '';
+        
+        if (goalInput) {
+            // Always use the current UI value (user's latest input)
+            // This is the source of truth during save operations
+            goal = goalInput.value.trim();
+        } else {
+            // Fallback to state if element not found (shouldn't happen during save)
+            goal = collectedData.metadata?.goal || '';
+        }
+        
+        // Update metadata with current tab, instructor instructions, and goal
         if (window.aiWritingAssistant && window.aiWritingAssistant.tabManager) {
             const currentTab = window.aiWritingAssistant.tabManager.getCurrentTab();
             collectedData.metadata = { 
                 ...collectedData.metadata, 
                 currentTab,
-                instructorInstructions: window.instructorDescription || ''
+                instructorInstructions: window.instructorDescription || '',
+                goal: goal
+            };
+        } else {
+            // Still set goal even if tabManager not ready
+            collectedData.metadata = {
+                ...collectedData.metadata,
+                goal: goal
             };
         }
         
@@ -430,6 +468,61 @@ class PlanModule {
             this.domManager.addEventListener(this.elements.addIdeaBubbleBtn, 'click', this.handleAddIdeaClick);
         }
         
+        // Setup goal input autosave (Google Docs style)
+        // - Debounced autosave on input (after user stops typing)
+        // - Immediate save on blur (when user clicks away)
+        // - Save on page unload
+        const goalInput = document.getElementById('assignmentGoal');
+        if (goalInput && this.projectManager) {
+            let debounceTimer = null;
+            const debounceMs = 300; // Same as Write/Edit modules for consistency
+            
+            // Autosave on input (debounced) - like Google Docs
+            goalInput.addEventListener('input', () => {
+                // Clear previous timer
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                }
+                
+                // Set new timer for debounced save
+                debounceTimer = setTimeout(() => {
+                    console.log('PlanModule: Goal autosave triggered (debounced input)');
+                    // Direct save like Write/Edit modules for fast, instant feel
+                    this.projectManager.saveProject().catch((e) => {
+                        console.error('PlanModule: Goal autosave failed:', e);
+                    });
+                }, debounceMs);
+            });
+            
+            // Immediate save on blur (when user clicks away) - like Google Docs
+            goalInput.addEventListener('blur', () => {
+                // Cancel any pending debounced save
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = null;
+                }
+                
+                // Immediate save on blur
+                console.log('PlanModule: Goal save triggered (blur)');
+                this.projectManager.saveProject().catch((e) => {
+                    console.error('PlanModule: Goal save on blur failed:', e);
+                });
+            });
+            
+            // Save on page unload (best-effort) - like Google Docs
+            window.addEventListener('beforeunload', () => {
+                // Cancel any pending debounced save
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = null;
+                }
+                
+                // Fire-and-forget save on unload
+                // Note: Browsers may not wait for this, but it helps catch unsaved changes
+                this.projectManager.saveProject().catch(() => {});
+            }, { once: true });
+        }
+        
         // Listen for bubble content changes - update content but don't autosave on every keystroke
         // Save happens on blur (when user clicks away) to prevent multiple DB entries
         document.addEventListener('bubbleContentChanged', (event) => {
@@ -494,6 +587,36 @@ class PlanModule {
                 console.log('  isInitialized:', this.isInitialized);
                 console.log('  state.plan:', state.plan);
                 console.log('  state.plan.ideas:', state.plan ? state.plan.ideas : 'N/A');
+            }
+            
+            // Also restore goal in PlanModule when ready event fires (multiple attempts)
+            // Only restore if input is empty (preserve user input if they've typed)
+            if (state.metadata && state.metadata.goal) {
+                console.log('PlanModule: Goal found in state, will restore:', state.metadata.goal);
+                const restoreGoal = () => {
+                    const goalInput = document.getElementById('assignmentGoal');
+                    if (goalInput) {
+                        const currentValue = goalInput.value.trim();
+                        // Only restore if input is empty (don't overwrite user input)
+                        if (!currentValue && goalInput.value !== state.metadata.goal) {
+                            goalInput.value = state.metadata.goal;
+                            console.log('PlanModule: Goal restored to:', goalInput.value);
+                            return true;
+                        } else if (currentValue) {
+                            console.log('PlanModule: Goal input has value, preserving user input:', currentValue);
+                            return true;
+                        }
+                        return true;
+                    }
+                    return false;
+                };
+                
+                // Try immediately
+                if (!restoreGoal()) {
+                    setTimeout(restoreGoal, 100);
+                }
+                setTimeout(restoreGoal, 300);
+                setTimeout(restoreGoal, 1000);
             }
         });
         
@@ -1247,14 +1370,180 @@ class AIWritingAssistant {
 
 
     restoreUIFromState(state) {
+        console.log('=== restoreUIFromState START ===');
+        console.log('Full state:', JSON.stringify(state, null, 2));
+        console.log('Metadata:', state?.metadata);
+        console.log('Goal value:', state?.metadata?.goal);
+        console.log('Goal type:', typeof state?.metadata?.goal);
+        
+        // Get goal value to restore (store it now before any async operations)
+        const goalToRestore = (state?.metadata?.goal !== undefined && state?.metadata?.goal !== null) 
+            ? String(state.metadata.goal) 
+            : '';
+        console.log('Goal to restore:', goalToRestore);
+        
+        // Restore current tab FIRST, then restore goal (since goal input is in Plan tab)
+        // Use a callback to ensure tab switch completes before restoring goal
+        if (state.metadata && state.metadata.currentTab) {
+            this.tabManager.switchTab(state.metadata.currentTab);
+            
+            // Ensure Plan tab content is visible before restoring goal
+            const planTab = document.getElementById('plan');
+            if (planTab && !planTab.classList.contains('active')) {
+                planTab.classList.add('active');
+            }
+        }
+        
+        // Restore goal - use multiple strategies to ensure it works
+        // Only restore if input is empty (preserve user input if they've typed)
+        const restoreGoal = () => {
+            const goalInput = document.getElementById('assignmentGoal');
+            if (goalInput) {
+                console.log('=== restoreGoal() called ===');
+                console.log('Found goal input element');
+                console.log('Element is visible:', goalInput.offsetParent !== null);
+                console.log('Element display:', window.getComputedStyle(goalInput).display);
+                console.log('Element in DOM:', document.body.contains(goalInput));
+                console.log('Current input value BEFORE:', goalInput.value);
+                console.log('Goal to restore:', goalToRestore);
+                console.log('Goal length:', goalToRestore ? goalToRestore.length : 0);
+                
+                // Check if user has typed something (preserve user input)
+                const currentValue = goalInput.value.trim();
+                if (currentValue) {
+                    console.log('⚠️ Goal input has current value, preserving user input:', currentValue);
+                    console.log('Not restoring from state to avoid overwriting user input');
+                    return true;
+                }
+                
+                // CRITICAL: For textarea, the value must be set using .value property
+                // AND we must ensure the element is actually in the DOM
+                // Only restore if input is empty
+                if (goalToRestore && goalToRestore.length > 0) {
+                    // Direct assignment - the only reliable method
+                    goalInput.value = goalToRestore;
+                    
+                    console.log('Input value AFTER assignment:', goalInput.value);
+                    console.log('Input value length:', goalInput.value.length);
+                    
+                    // If value didn't stick, force it with a MutationObserver approach
+                    if (goalInput.value !== goalToRestore) {
+                        console.error('⚠️ Value assignment failed! Expected:', goalToRestore, 'Got:', goalInput.value);
+                        
+                        // Try alternative: create a new textarea and replace
+                        const newInput = goalInput.cloneNode(false);
+                        newInput.value = goalToRestore;
+                        goalInput.parentNode.replaceChild(newInput, goalInput);
+                        newInput.id = 'assignmentGoal';
+                        newInput.className = goalInput.className;
+                        
+                        console.log('Replaced element, new value:', newInput.value);
+                    }
+                } else {
+                    console.warn('Goal to restore is empty, skipping');
+                }
+                
+                // Verify it was set immediately
+                const finalValue = document.getElementById('assignmentGoal')?.value || '';
+                console.log('FINAL Input value after restore:', finalValue);
+                console.log('FINAL Input value length:', finalValue.length);
+                console.log('Placeholder visible?', !finalValue && document.getElementById('assignmentGoal')?.hasAttribute('placeholder'));
+                
+                // Watch for any changes that clear it
+                let watchCount = 0;
+                const watcher = setInterval(() => {
+                    watchCount++;
+                    if (goalInput.value !== goalToRestore && goalToRestore) {
+                        console.error('🚨 GOAL VALUE WAS CLEARED! Attempt #' + watchCount);
+                        console.error('Expected:', goalToRestore);
+                        console.error('Actual:', goalInput.value);
+                        console.trace('Stack trace:');
+                        // Re-set it
+                        goalInput.value = goalToRestore;
+                    }
+                    // Stop watching after 5 seconds
+                    if (watchCount >= 50) {
+                        clearInterval(watcher);
+                        console.log('Stopped watching goal input');
+                    }
+                }, 100);
+                
+                // Double-check after delays
+                setTimeout(() => {
+                    if (goalInput.value !== goalToRestore && goalToRestore) {
+                        console.warn('⚠️ Goal value was cleared after 50ms! Re-setting...');
+                        goalInput.value = goalToRestore;
+                    } else {
+                        console.log('✅ Goal value confirmed after 50ms:', goalInput.value);
+                    }
+                }, 50);
+                
+                setTimeout(() => {
+                    if (goalInput.value !== goalToRestore && goalToRestore) {
+                        console.warn('⚠️ Goal value was cleared after 200ms! Re-setting...');
+                        goalInput.value = goalToRestore;
+                    } else {
+                        console.log('✅ Goal value confirmed after 200ms:', goalInput.value);
+                    }
+                }, 200);
+                
+                setTimeout(() => {
+                    if (goalInput.value !== goalToRestore && goalToRestore) {
+                        console.warn('⚠️ Goal value was cleared after 1000ms! Re-setting...');
+                        goalInput.value = goalToRestore;
+                    } else {
+                        console.log('✅ Goal value confirmed after 1000ms:', goalInput.value);
+                        console.log('Final check - Input visible:', goalInput.offsetParent !== null);
+                        console.log('Final check - Display style:', window.getComputedStyle(goalInput).display);
+                    }
+                }, 1000);
+                
+                return true;
+            } else {
+                console.warn('Goal input element not found, will retry');
+                return false;
+            }
+        };
+        
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                // Try immediately after double RAF (ensures DOM is fully ready)
+                if (!restoreGoal()) {
+                    // Try after tab switch completes
+                    setTimeout(() => {
+                        if (!restoreGoal()) {
+                            // Retry after longer delay
+                            setTimeout(() => {
+                                if (!restoreGoal()) {
+                                    // Final retry with even longer delay
+                                    setTimeout(() => {
+                                        const restored = restoreGoal();
+                                        if (!restored) {
+                                            console.error('❌ FAILED to restore goal after all attempts!');
+                                            console.error('Element exists:', !!document.getElementById('assignmentGoal'));
+                                            console.error('Tab active:', document.getElementById('plan')?.classList.contains('active'));
+                                        }
+                                        console.log('Final restore attempt result:', restored);
+                                        console.log('=== restoreUIFromState END ===');
+                                    }, 500);
+                                } else {
+                                    console.log('=== restoreUIFromState END (retry 3) ===');
+                                }
+                            }, 300);
+                        } else {
+                            console.log('=== restoreUIFromState END (retry 2) ===');
+                        }
+                    }, 200);
+                } else {
+                    console.log('=== restoreUIFromState END (success) ===');
+                }
+            });
+        });
+        
         // Restore chat messages
         if (state.chatHistory && Array.isArray(state.chatHistory)) {
             this.chatSystem.loadMessages(state.chatHistory);
-        }
-
-        // Restore current tab
-        if (state.metadata && state.metadata.currentTab) {
-            this.tabManager.switchTab(state.metadata.currentTab);
         }
     }
 

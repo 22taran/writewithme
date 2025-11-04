@@ -303,6 +303,73 @@ html, body {
 /* =====================
    4. CONTENT AREAS
    ===================== */
+
+/* Goal Section */
+.goal-section {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--plan-gradient); /* Default to plan gradient */
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s ease;
+}
+
+/* Activity-specific goal section colors */
+body.activity-plan .goal-section {
+    background: var(--plan-gradient);
+}
+
+body.activity-write .goal-section {
+    background: var(--write-gradient);
+}
+
+body.activity-edit .goal-section {
+    background: var(--edit-gradient);
+}
+
+.goal-label {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 4px;
+    cursor: default;
+}
+
+.goal-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--text-color);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 40px;
+    max-height: 80px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.goal-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.goal-input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.8);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.goal-input:hover:not(:focus) {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 1);
+}
+
 .idea-bubbles-section {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -685,8 +752,8 @@ html, body {
    5. MESSAGES & BUTTONS
    ===================== */
 .message {
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: 8px;
+    padding: 8px 12px;
     border-radius: var(--border-radius);
     max-width: 85%;
     word-wrap: break-word;
@@ -1493,8 +1560,8 @@ body.activity-edit #aiSuggestionBtn:hover:not(:disabled) {
 
 /* Enhanced Message Styling */
 .message {
-    margin: 15px 0;
-    padding: 15px 20px;
+    margin: 8px 0;
+    padding: 8px 12px;
     border-radius: var(--border-radius);
     position: relative;
     max-width: 80%;
@@ -1515,21 +1582,21 @@ body.activity-edit #aiSuggestionBtn:hover:not(:disabled) {
 }
 
 .message-content {
-    font-size: 14px;
-    line-height: 1.5;
-    margin-bottom: 5px;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    margin-bottom: 3px;
 }
 
 .message-time {
-    font-size: 11px;
+    font-size: 0.6875rem;
     opacity: 0.7;
-    margin-top: 5px;
+    margin-top: 3px;
 }
 
 .message-actions {
-    margin-top: 10px;
+    margin-top: 6px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
 }
 
 .regenerate-btn {
@@ -1765,7 +1832,7 @@ body.activity-edit .chat-tab.active {
 .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: 12px;
     background: var(--primary-bg);
     display: none;
     min-height: 0;
