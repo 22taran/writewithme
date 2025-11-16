@@ -189,5 +189,143 @@ function xmldb_writeassistdev_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2025102107, 'writeassistdev');
     }
     
+    // Version 2025102108: Add plan_outline field to metadata table for storing outline structure
+    if ($oldversion < 2025102108) {
+        $table = new xmldb_table('writeassistdev_metadata');
+        $field = new xmldb_field('plan_outline', XMLDB_TYPE_TEXT, null, null, null, null, null, 'goal');
+        
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102108, 'writeassistdev');
+    }
+    
+    // Version 2025102109: Add instructor goal fields to writeassistdev table (per-tab goals)
+    if ($oldversion < 2025102109) {
+        $table = new xmldb_table('writeassistdev');
+        $field1 = new xmldb_field('plan_goal', XMLDB_TYPE_TEXT, null, null, null, null, null, 'timemodified');
+        $field2 = new xmldb_field('write_goal', XMLDB_TYPE_TEXT, null, null, null, null, null, 'plan_goal');
+        $field3 = new xmldb_field('edit_goal', XMLDB_TYPE_TEXT, null, null, null, null, null, 'write_goal');
+        
+        if (!$dbman->field_exists($table, $field1)) {
+            $dbman->add_field($table, $field1);
+        }
+        if (!$dbman->field_exists($table, $field2)) {
+            $dbman->add_field($table, $field2);
+        }
+        if (!$dbman->field_exists($table, $field3)) {
+            $dbman->add_field($table, $field3);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102109, 'writeassistdev');
+    }
+    
+    // Version 2025102110: Update existing NULL goal values to empty strings (fix YUI form errors)
+    if ($oldversion < 2025102110) {
+        // Update all existing records to have empty string values (not NULL)
+        // This prevents Moodle YUI form JavaScript errors when editing existing activities
+        // YUI form system fails if fields are NULL: "TypeError: null is not an object (evaluating 'this.field.setAttribute')"
+        try {
+            $DB->execute("UPDATE {writeassistdev} SET plan_goal = '' WHERE plan_goal IS NULL");
+            $DB->execute("UPDATE {writeassistdev} SET write_goal = '' WHERE write_goal IS NULL");
+            $DB->execute("UPDATE {writeassistdev} SET edit_goal = '' WHERE edit_goal IS NULL");
+        } catch (Exception $e) {
+            // Ignore errors if fields don't exist yet or table doesn't exist
+            debugging("Could not update NULL goal fields: " . $e->getMessage(), DEBUG_NORMAL);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102110, 'writeassistdev');
+    }
+    
+    // Version 2025102111: Change timestamp field from INTEGER to TIMESTAMP (TIMESTAMPTZ compatible)
+    if ($oldversion < 2025102111) {
+        // This version was for dropping and recreating - handled below in 2025102112
+        upgrade_mod_savepoint(true, 2025102111, 'writeassistdev');
+    }
+    
+    // Version 2025102112: Ensure timestamp field exists as TIMESTAMP type
+    if ($oldversion < 2025102112) {
+        $table = new xmldb_table('writeassistdev_chat');
+        
+        // Check if timestamp field exists (could be INTEGER or TIMESTAMP)
+        $oldField = new xmldb_field('timestamp');
+        $fieldExists = $dbman->field_exists($table, $oldField);
+        
+        if ($fieldExists) {
+            // Field exists - check if it's INTEGER and needs conversion
+            $intField = new xmldb_field('timestamp', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+            if ($dbman->field_exists($table, $intField)) {
+                // Drop the index first (required before dropping column)
+                $index = new xmldb_index('idx_timestamp', XMLDB_INDEX_NOTUNIQUE, array('timestamp'));
+                if ($dbman->index_exists($table, $index)) {
+                    $dbman->drop_index($table, $index);
+                }
+                
+                // Drop the old INTEGER column
+                $dbman->drop_field($table, $intField);
+                
+                // Recreate the column as TIMESTAMP type with default value using raw SQL
+                // XMLDB has issues with defaults on non-empty tables, so use direct SQL
+                try {
+                    $DB->execute("ALTER TABLE {writeassistdev_chat} ADD COLUMN timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER content");
+                } catch (Exception $e) {
+                    // If that fails, try without AFTER clause (some DBs don't support it)
+                    try {
+                        $DB->execute("ALTER TABLE {writeassistdev_chat} ADD COLUMN timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                    } catch (Exception $e2) {
+                        // Fallback: use XMLDB but make it nullable first, then update and make NOT NULL
+                        $newField = new xmldb_field('timestamp');
+                        $newField->set_attributes(XMLDB_TYPE_TIMESTAMP, null, null, null, null, null, null, 'content');
+                        $dbman->add_field($table, $newField);
+                        
+                        // Update existing rows with current timestamp
+                        $DB->execute("UPDATE {writeassistdev_chat} SET timestamp = CURRENT_TIMESTAMP WHERE timestamp IS NULL");
+                        
+                        // Now make it NOT NULL
+                        $newField->set_attributes(XMLDB_TYPE_TIMESTAMP, null, null, XMLDB_NOTNULL, null, null, null, 'content');
+                        $dbman->change_field_notnull($table, $newField);
+                    }
+                }
+                
+                // Recreate the index on the new TIMESTAMP field
+                $index = new xmldb_index('idx_timestamp', XMLDB_INDEX_NOTUNIQUE, array('timestamp'));
+                $dbman->add_index($table, $index);
+            }
+            // If field exists but is already TIMESTAMP, do nothing
+        } else {
+            // Field doesn't exist - create it as TIMESTAMP with default value using raw SQL
+            // XMLDB has issues with defaults on non-empty tables, so use direct SQL
+            try {
+                $DB->execute("ALTER TABLE {writeassistdev_chat} ADD COLUMN timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER content");
+            } catch (Exception $e) {
+                // If that fails, try without AFTER clause (some DBs don't support it)
+                try {
+                    $DB->execute("ALTER TABLE {writeassistdev_chat} ADD COLUMN timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                } catch (Exception $e2) {
+                    // Fallback: use XMLDB but make it nullable first, then update and make NOT NULL
+                    $newField = new xmldb_field('timestamp');
+                    $newField->set_attributes(XMLDB_TYPE_TIMESTAMP, null, null, null, null, null, null, 'content');
+                    $dbman->add_field($table, $newField);
+                    
+                    // Update existing rows with current timestamp
+                    $DB->execute("UPDATE {writeassistdev_chat} SET timestamp = CURRENT_TIMESTAMP WHERE timestamp IS NULL");
+                    
+                    // Now make it NOT NULL
+                    $newField->set_attributes(XMLDB_TYPE_TIMESTAMP, null, null, XMLDB_NOTNULL, null, null, null, 'content');
+                    $dbman->change_field_notnull($table, $newField);
+                }
+            }
+            
+            // Create the index
+            $index = new xmldb_index('idx_timestamp', XMLDB_INDEX_NOTUNIQUE, array('timestamp'));
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+        }
+        
+        upgrade_mod_savepoint(true, 2025102112, 'writeassistdev');
+    }
+    
     return true;
 }

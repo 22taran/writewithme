@@ -44,6 +44,12 @@ function writeassistdev_add_instance($data, $form) {
         $data->template = 'argumentative'; // Default template
     }
 
+    // Handle goal fields (ensure they're strings and never null)
+    // Convert null to empty string to prevent database and form errors
+    $data->plan_goal = isset($data->plan_goal) && $data->plan_goal !== null ? (string)$data->plan_goal : '';
+    $data->write_goal = isset($data->write_goal) && $data->write_goal !== null ? (string)$data->write_goal : '';
+    $data->edit_goal = isset($data->edit_goal) && $data->edit_goal !== null ? (string)$data->edit_goal : '';
+
     // Insert the new writeassistdev instance.
     $data->id = $DB->insert_record('writeassistdev', $data);
 
@@ -76,6 +82,12 @@ function writeassistdev_update_instance($data, $form) {
     if (empty($data->template)) {
         $data->template = 'argumentative'; // Default template
     }
+
+    // Handle goal fields (ensure they're strings and never null)
+    // Convert null to empty string to prevent database and form errors
+    $data->plan_goal = isset($data->plan_goal) && $data->plan_goal !== null ? (string)$data->plan_goal : '';
+    $data->write_goal = isset($data->write_goal) && $data->write_goal !== null ? (string)$data->write_goal : '';
+    $data->edit_goal = isset($data->edit_goal) && $data->edit_goal !== null ? (string)$data->edit_goal : '';
 
     $DB->update_record('writeassistdev', $data);
 
@@ -319,9 +331,9 @@ function writeassistdev_get_coursemodule_info($coursemodule) {
  * @param int $userid User ID
  * @return array Array of chat messages
  */
-function writeassistdev_load_chat_history_only($writeassistdevid, $userid) {
+function writeassistdev_load_chat_history_only($writeassistdevid, $userid, $limit = null) {
     $dataManager = new \mod_writeassistdev\data\ProjectDataManager();
-    return $dataManager->loadChatHistoryOnly($writeassistdevid, $userid);
+    return $dataManager->loadChatHistoryOnly($writeassistdevid, $userid, $limit);
 }
 
 /**

@@ -15,7 +15,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin = new stdClass();
-$plugin->version   = 2025102107;
+$plugin->version   = 2025102112;
 $plugin->requires  = 2020110900;
 $plugin->component = 'mod_writeassistdev';
 $plugin->cron      = 0;

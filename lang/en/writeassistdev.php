@@ -43,6 +43,13 @@ $string['my_outline'] = 'My Outline';
 $string['description'] = 'Description';
 $string['template'] = 'Writing Template';
 $string['template_help'] = 'Select a writing template that will guide students through the writing process. This template will be automatically loaded when students access the activity.';
+$string['goals'] = 'Assignment Goals';
+$string['plan_goal'] = 'Plan & Organize Goal';
+$string['plan_goal_help'] = 'Enter the goal for the Plan & Organize phase. This will be displayed to students in read-only mode.';
+$string['write_goal'] = 'Write Goal';
+$string['write_goal_help'] = 'Enter the goal for the Write phase. This will be displayed to students in read-only mode.';
+$string['edit_goal'] = 'Edit & Revise Goal';
+$string['edit_goal_help'] = 'Enter the goal for the Edit & Revise phase. This will be displayed to students in read-only mode.';
 
 // Settings strings
 $string['settingsdescription'] = 'Configure settings for the AI Writing Assistant module.';

@@ -138,9 +138,28 @@ class ProjectDataManager {
                 throw new \Exception('User ' . $userid . ' does not exist');
             }
             
-            // Save metadata
+            // Save metadata (including plan outline structure)
             error_log('Saving metadata...');
-            $this->saveMetadata($writeassistdevid, $userid, $projectData['metadata'] ?? []);
+            $metadata = $projectData['metadata'] ?? [];
+            // Include plan outline data in metadata
+            if (isset($projectData['plan'])) {
+                $planOutline = [
+                    'outline' => $projectData['plan']['outline'] ?? [],
+                    'customSectionTitles' => $projectData['plan']['customSectionTitles'] ?? [],
+                    'customSections' => $projectData['plan']['customSections'] ?? [],
+                    'removedSections' => $projectData['plan']['removedSections'] ?? [],
+                    'sectionOrder' => $projectData['plan']['sectionOrder'] ?? [] // Save section order
+                ];
+                $metadata['planOutline'] = $planOutline;
+                error_log('ProjectDataManager::saveProject - plan outline structure: ' . json_encode($planOutline));
+                error_log('ProjectDataManager::saveProject - outline count: ' . count($planOutline['outline']));
+                error_log('ProjectDataManager::saveProject - customSections count: ' . count($planOutline['customSections']));
+                error_log('ProjectDataManager::saveProject - customSectionTitles count: ' . count($planOutline['customSectionTitles']));
+                error_log('ProjectDataManager::saveProject - sectionOrder: ' . json_encode($planOutline['sectionOrder']));
+            } else {
+                error_log('ProjectDataManager::saveProject - plan data NOT in projectData');
+            }
+            $this->saveMetadata($writeassistdevid, $userid, $metadata);
             
             // Save ideas
             error_log('Saving ideas...');
@@ -199,18 +218,7 @@ class ProjectDataManager {
                 'created' => ($metadata && isset($metadata->created_at)) ? date('c', $metadata->created_at) : date('c'),
                 'modified' => ($metadata && isset($metadata->modified_at)) ? date('c', $metadata->modified_at) : date('c')
             ],
-            'plan' => [
-                'ideas' => array_map(function($idea) {
-                    return [
-                        'id' => $idea->id,
-                        'content' => $idea->content,
-                        'location' => $idea->location,
-                        'sectionId' => $idea->section_id,
-                        'aiGenerated' => (bool)$idea->ai_generated
-                    ];
-                }, $ideas),
-                'outline' => [] // TODO: Implement outline reconstruction
-            ],
+            'plan' => $this->reconstructPlanData($ideas, $metadata),
             'write' => $this->getContentByPhase($content, 'write'),
             'edit' => $this->getContentByPhase($content, 'edit'),
             'chatHistory' => array_values(array_map(function($message) {
@@ -225,6 +233,48 @@ class ProjectDataManager {
         
         error_log('ProjectDataManager: Final reconstructed project: ' . json_encode($project));
         return $project;
+    }
+    
+    /**
+     * Reconstruct plan data including outline structure
+     * @param array $ideas Ideas records
+     * @param object $metadata Metadata record
+     * @return array Plan data with ideas and outline
+     */
+    private function reconstructPlanData($ideas, $metadata) {
+        $planData = [
+            'ideas' => array_map(function($idea) {
+                return [
+                    'id' => $idea->id,
+                    'content' => $idea->content,
+                    'location' => $idea->location,
+                    'sectionId' => $idea->section_id,
+                    'aiGenerated' => (bool)$idea->ai_generated
+                ];
+            }, $ideas),
+            'outline' => [],
+            'customSectionTitles' => [],
+            'customSections' => [],
+            'removedSections' => []
+        ];
+        
+        // Restore outline structure from plan_outline JSON field
+        if ($metadata && isset($metadata->plan_outline) && !empty($metadata->plan_outline)) {
+            try {
+                $outlineData = json_decode($metadata->plan_outline, true);
+                if (is_array($outlineData)) {
+                    $planData['outline'] = $outlineData['outline'] ?? [];
+                    $planData['customSectionTitles'] = $outlineData['customSectionTitles'] ?? [];
+                    $planData['customSections'] = $outlineData['customSections'] ?? [];
+                    $planData['removedSections'] = $outlineData['removedSections'] ?? [];
+                    $planData['sectionOrder'] = $outlineData['sectionOrder'] ?? []; // Restore section order
+                }
+            } catch (\Exception $e) {
+                error_log('Failed to decode plan_outline JSON: ' . $e->getMessage());
+            }
+        }
+        
+        return $planData;
     }
     
     /**
@@ -256,6 +306,17 @@ class ProjectDataManager {
         
         try {
             $now = time();
+            
+            // Serialize plan outline data (custom sections, custom titles, outline structure)
+            $planOutlineData = null;
+            if (isset($metadata['planOutline'])) {
+                $planOutlineData = json_encode($metadata['planOutline'], JSON_UNESCAPED_UNICODE);
+                error_log('ProjectDataManager::saveMetadata - planOutline data: ' . $planOutlineData);
+                error_log('ProjectDataManager::saveMetadata - planOutline structure: ' . print_r($metadata['planOutline'], true));
+            } else {
+                error_log('ProjectDataManager::saveMetadata - planOutline NOT in metadata');
+            }
+        
         $record = [
             'writeassistdevid' => $writeassistdevid,
             'userid' => $userid,
@@ -268,23 +329,72 @@ class ProjectDataManager {
             'modified_at' => $now
         ];
         
+        // Add plan_outline field - check if it exists first
+        $dbman = $DB->get_manager();
+        $table = new \xmldb_table('writeassistdev_metadata');
+        $field = new \xmldb_field('plan_outline', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        
+        if ($dbman->field_exists($table, $field)) {
+            $record['plan_outline'] = $planOutlineData;
+            error_log('ProjectDataManager::saveMetadata - plan_outline field exists, adding to record');
+            error_log('ProjectDataManager::saveMetadata - plan_outline value length: ' . ($planOutlineData ? strlen($planOutlineData) : 0));
+        } else {
+            error_log('ProjectDataManager::saveMetadata - plan_outline field does NOT exist in database yet');
+            error_log('ProjectDataManager::saveMetadata - Need to run Moodle upgrade to add plan_outline field');
+            // Try to add the field dynamically if it doesn't exist (fallback)
+            try {
+                $dbman->add_field($table, $field);
+                error_log('ProjectDataManager::saveMetadata - Dynamically added plan_outline field');
+                $record['plan_outline'] = $planOutlineData;
+            } catch (\Exception $e) {
+                error_log('ProjectDataManager::saveMetadata - Failed to add plan_outline field: ' . $e->getMessage());
+                // Don't add plan_outline to record if field doesn't exist and we can't create it
+                // The save will still succeed for other fields
+            }
+        }
+        
         $existing = $DB->get_record('writeassistdev_metadata', [
             'writeassistdevid' => $writeassistdevid,
             'userid' => $userid
         ]);
         
+        // Remove plan_outline from record if field doesn't exist (to avoid DB errors)
+        $recordToSave = $record;
+        if (!isset($record['plan_outline']) || $record['plan_outline'] === null) {
+            // Field doesn't exist, remove it from save to prevent DB errors
+            unset($recordToSave['plan_outline']);
+        }
+        
         if ($existing) {
-            $record['id'] = $existing->id;
-                $record['created_at'] = $existing->created_at; // Keep original creation time
-                $result = $DB->update_record('writeassistdev_metadata', $record);
-                error_log('Metadata update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
-        } else {
-                $result = $DB->insert_record('writeassistdev_metadata', $record);
-                error_log('Metadata insert result: ' . ($result ? 'SUCCESS (ID: ' . $result . ')' : 'FAILED'));
+            $recordToSave['id'] = $existing->id;
+            $recordToSave['created_at'] = $existing->created_at; // Keep original creation time
+            
+            // Remove plan_outline if field doesn't exist in database
+            if (!$dbman->field_exists($table, $field)) {
+                unset($recordToSave['plan_outline']);
             }
+            
+            $result = $DB->update_record('writeassistdev_metadata', $recordToSave);
+            error_log('Metadata update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
+            if (!$result) {
+                error_log('Metadata update failed - record: ' . json_encode($recordToSave));
+            }
+        } else {
+            // Remove plan_outline if field doesn't exist in database
+            if (!$dbman->field_exists($table, $field)) {
+                unset($recordToSave['plan_outline']);
+            }
+            
+            $result = $DB->insert_record('writeassistdev_metadata', $recordToSave);
+            error_log('Metadata insert result: ' . ($result ? 'SUCCESS (ID: ' . $result . ')' : 'FAILED'));
+            if (!$result) {
+                error_log('Metadata insert failed - record: ' . json_encode($recordToSave));
+            }
+        }
         } catch (\Exception $e) {
             error_log('saveMetadata error: ' . $e->getMessage());
             error_log('saveMetadata error trace: ' . $e->getTraceAsString());
+            error_log('saveMetadata error - record being saved: ' . json_encode($record ?? []));
             throw $e;
         }
     }
@@ -714,15 +824,29 @@ class ProjectDataManager {
      * @param int $userid User ID
      * @return array Array of chat messages
      */
-    public function loadChatHistoryOnly($writeassistdevid, $userid) {
+    public function loadChatHistoryOnly($writeassistdevid, $userid, $limit = null) {
         global $DB;
         
         try {
             // Load ONLY chat messages (not metadata, ideas, or content)
-            $chatRecords = $DB->get_records('writeassistdev_chat', [
+            // Sort by timestamp DESC to get latest messages first (for pagination)
+            $params = [
                 'writeassistdevid' => $writeassistdevid,
                 'userid' => $userid
-            ], 'timestamp ASC');
+            ];
+            
+            // Use SQL directly to support LIMIT for better performance
+            $sql = "SELECT id, role, content, timestamp 
+                    FROM {writeassistdev_chat} 
+                    WHERE writeassistdevid = :writeassistdevid 
+                    AND userid = :userid 
+                    ORDER BY timestamp DESC";
+            
+            if ($limit !== null && $limit > 0) {
+                $sql .= " LIMIT " . intval($limit);
+            }
+            
+            $chatRecords = $DB->get_records_sql($sql, $params);
             
             $chatHistory = [];
             foreach ($chatRecords as $record) {

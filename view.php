@@ -27,10 +27,26 @@ if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
 $instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
 
+// Ensure goal fields are always strings (never null) to prevent JavaScript errors
+// This prevents "TypeError: null is not an object" when editing existing activities
+if (!isset($instance->plan_goal) || $instance->plan_goal === null) {
+    $instance->plan_goal = '';
+}
+if (!isset($instance->write_goal) || $instance->write_goal === null) {
+    $instance->write_goal = '';
+}
+if (!isset($instance->edit_goal) || $instance->edit_goal === null) {
+    $instance->edit_goal = '';
+}
+
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
 require_capability('mod/writeassistdev:view', $context);
+
+// Check if user can edit (instructor)
+$canEditGoals = has_capability('mod/writeassistdev:addinstance', $context) || 
+                has_capability('moodle/course:manageactivities', $context);
 
 $PAGE->set_url(new moodle_url('/mod/writeassistdev/view.php', ['id' => $cm->id]));
 $PAGE->set_title(format_string($instance->name));
@@ -131,6 +147,8 @@ echo $OUTPUT->header();
             </div>
         </div>
     </div>
+    <!-- Resizer for chat section -->
+    <div class="chat-resizer" id="chatResizer"></div>
     <!-- Activities Section -->
     <div class="activities-section">
         <div class="tabs">
@@ -149,15 +167,16 @@ echo $OUTPUT->header();
                 <button class="action-btn exit-btn" id="exitBtn">Exit</button>
             </div>
         </div>
-        <!-- Goal Section - Visible on all tabs -->
-        <div class="goal-section">
-            <label for="assignmentGoal" class="goal-label">🎯 Assignment Goal</label>
-            <textarea 
-                id="assignmentGoal" 
-                class="goal-input" 
-                placeholder="What is the main goal of this assignment? (e.g., 'Write a persuasive essay arguing for renewable energy adoption' or 'Create a lab report analyzing chemical reactions')"
-                rows="1"
-            ></textarea>
+        <!-- Goal Section - Visible on all tabs, shows different goal per tab -->
+        <div class="goal-wrapper" id="goalSection">
+            <div class="goal-header">
+                <span class="goal-title">Assignment Goal</span>
+            </div>
+            <!-- Read-only display - goal comes from backend set by instructor -->
+            <div id="assignmentGoal" class="goal-field goal-field-readonly"><?php 
+                $initialGoal = isset($instance->plan_goal) && $instance->plan_goal !== null ? htmlspecialchars((string)$instance->plan_goal, ENT_QUOTES, 'UTF-8') : '';
+                echo $initialGoal ?: '<em>No goal set for this phase.</em>';
+            ?></div>
         </div>
         <!-- Plan & Organize Tab -->
         <div class="tab-content active" id="plan">
@@ -170,14 +189,32 @@ echo $OUTPUT->header();
             <?php endif; ?>
             <div class="idea-bubbles-section">
                 <div class="idea-dropzone" id="brainstormDropzone">
-                    <h3><?php echo get_string('brainstorm', 'mod_writeassistdev'); ?></h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                        <h3 style="margin: 0;"><?php echo get_string('brainstorm', 'mod_writeassistdev'); ?></h3>
+                        <button id="askAIButton" class="ask-ai-btn" title="You have to add atleast 4 ideas before" disabled>
+                            <span>Ask AI to Generate Ideas</span>
+                        </button>
+                    </div>
                     <div class="bubble-actions-container">
                         <button id="addIdeaBubble"><?php echo get_string('add_idea', 'mod_writeassistdev'); ?></button>
                     </div>
                     <div class="idea-bubbles" id="ideaBubbles"></div>
                 </div>
                 <div class="outline-dropzone" id="outlineDropzone">
-                    <h3><?php echo get_string('outline', 'mod_writeassistdev'); ?></h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                        <h3 style="margin: 0;"><?php echo get_string('outline', 'mod_writeassistdev'); ?></h3>
+                        <div style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                            <button id="askAIOutlineButton" class="ask-ai-btn" title="You have to add atleast 4 ideas in brainstorm before" disabled>
+                                <span>Ask AI to Generate Outline</span>
+                            </button>
+                            <button id="addCustomSection" class="add-section-btn" title="Add Custom Section">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M7 3v8M3 7h8" stroke-linecap="round"/>
+                                </svg>
+                                <span>Add Section</span>
+                            </button>
+                        </div>
+                    </div>
                     <div class="outline-items" id="outlineItems"></div>
                 </div>
             </div>
@@ -189,6 +226,21 @@ echo $OUTPUT->header();
                     <h3><?php echo get_string('my_outline', 'mod_writeassistdev'); ?></h3>
                 </div>
                 <div class="write-editor-container">
+                    <div class="write-ai-tools">
+                        <button id="transitionBtn" class="ai-tool-btn" disabled title="Select at least two sentences to get transition suggestions">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M2 8h12M8 2l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span>Transition Helper</span>
+                        </button>
+                        <button id="rephraseBtn" class="ai-tool-btn" disabled title="Select a sentence or paragraph to rephrase">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M8 2L2 6v8h12V6L8 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M6 8h4M6 11h2" stroke-linecap="round"/>
+                            </svg>
+                            <span>Rephrase</span>
+                        </button>
+                    </div>
                     <div id="writeToolbar"></div>
                     <div id="writeEditor"></div>
                 </div>
@@ -196,7 +248,35 @@ echo $OUTPUT->header();
         </div>
         <!-- Edit & Revise Tab -->
         <div class="tab-content" id="edit">
-            <div id="editEditor"></div>
+            <div class="edit-flex-container">
+                <div class="edit-editor-container">
+                    <div class="edit-toolbar-wrapper">
+                        <div class="edit-ai-toolbar">
+                            <button id="aiReviewBtn" class="ai-tool-btn">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 2L2 6v8h12V6L8 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M6 8h4M6 11h2" stroke-linecap="round"/>
+                                </svg>
+                                <span>AI Review</span>
+                            </button>
+                        </div>
+                        <div id="editToolbar"></div>
+                    </div>
+                    <div id="editEditor"></div>
+                </div>
+                <div class="edit-review-panel" id="editReviewPanel" style="display: none;">
+                    <div class="review-panel-header">
+                        <h3>AI Review Results</h3>
+                        <button class="review-panel-close" id="reviewPanelClose" title="Close review panel">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 4L4 12M4 4l8 8" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="review-stats" id="reviewStats"></div>
+                    <div class="review-suggestions" id="reviewSuggestions"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -208,6 +288,16 @@ echo $OUTPUT->header();
 // Pass the instructor-selected template to the JavaScript modules
 window.selectedTemplate = <?php echo json_encode($instance->template ?: 'argumentative'); ?>;
 window.instructorDescription = <?php echo json_encode($instance->intro ?: ''); ?>;
+
+// Pass instructor goals and permissions
+// Ensure goals are always strings (never null) to prevent JavaScript errors
+window.instructorGoals = {
+    plan: <?php echo json_encode(isset($instance->plan_goal) && $instance->plan_goal !== null ? (string)$instance->plan_goal : ''); ?>,
+    write: <?php echo json_encode(isset($instance->write_goal) && $instance->write_goal !== null ? (string)$instance->write_goal : ''); ?>,
+    edit: <?php echo json_encode(isset($instance->edit_goal) && $instance->edit_goal !== null ? (string)$instance->edit_goal : ''); ?>
+};
+window.canEditGoals = <?php echo $canEditGoals ? 'true' : 'false'; ?>;
+window.writeassistdevId = <?php echo $instance->id; ?>;
 
 // Load template data directly from PHP to avoid HTTP 404 issues
 window.templateData = <?php 
@@ -284,6 +374,21 @@ console.log('==========================================');
             <button class="version-preview-btn" id="versionPreviewBtn" disabled>Preview</button>
             <button class="version-restore-btn" id="versionRestoreBtn" disabled>Restore This Version</button>
         </div>
+    </div>
+</div>
+
+<!-- Success Notification Modal -->
+<div id="successNotificationModal" class="success-notification-modal" style="display: none;">
+    <div class="success-notification-content">
+        <div class="success-notification-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="22 4 12 14.01 9 11.01" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <h3 class="success-notification-title">Great Job!</h3>
+        <p class="success-notification-message" id="successNotificationMessage">Your document looks good!</p>
+        <button class="success-notification-btn" id="successNotificationClose">OK</button>
     </div>
 </div>
 

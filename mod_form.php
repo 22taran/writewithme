@@ -25,6 +25,33 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
      * Defines the form elements
      */
     public function definition() {
+        // CRITICAL: Ensure goal fields exist in defaultvalues BEFORE form definition
+        // This prevents YUI form JavaScript errors when fields are missing
+        // Moodle's YUI form system initializes fields based on defaultvalues
+        // If fields don't exist, it tries to access null.field.setAttribute and fails
+        if ($this->_instance && isset($this->_defaultvalues)) {
+            // We're editing an existing instance - ensure goal fields exist
+            if (!array_key_exists('plan_goal', $this->_defaultvalues)) {
+                $this->_defaultvalues['plan_goal'] = '';
+            }
+            if (!array_key_exists('write_goal', $this->_defaultvalues)) {
+                $this->_defaultvalues['write_goal'] = '';
+            }
+            if (!array_key_exists('edit_goal', $this->_defaultvalues)) {
+                $this->_defaultvalues['edit_goal'] = '';
+            }
+            // Also ensure they're not null
+            if ($this->_defaultvalues['plan_goal'] === null) {
+                $this->_defaultvalues['plan_goal'] = '';
+            }
+            if ($this->_defaultvalues['write_goal'] === null) {
+                $this->_defaultvalues['write_goal'] = '';
+            }
+            if ($this->_defaultvalues['edit_goal'] === null) {
+                $this->_defaultvalues['edit_goal'] = '';
+            }
+        }
+        
         $mform = $this->_form;
 
         // Adding the "general" fieldset, where all the common settings are shown.
@@ -45,6 +72,24 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
         $mform->setType('template', PARAM_TEXT);
         $mform->addHelpButton('template', 'template', 'mod_writeassistdev');
         $mform->setDefault('template', 'argumentative'); // Default to argumentative essay
+
+        // Add instructor goals for each tab
+        $mform->addElement('header', 'goals', get_string('goals', 'mod_writeassistdev'));
+        
+        $mform->addElement('textarea', 'plan_goal', get_string('plan_goal', 'mod_writeassistdev'), array('rows' => 3, 'cols' => 60));
+        $mform->setType('plan_goal', PARAM_TEXT);
+        $mform->addHelpButton('plan_goal', 'plan_goal', 'mod_writeassistdev');
+        $mform->setDefault('plan_goal', '');
+        
+        $mform->addElement('textarea', 'write_goal', get_string('write_goal', 'mod_writeassistdev'), array('rows' => 3, 'cols' => 60));
+        $mform->setType('write_goal', PARAM_TEXT);
+        $mform->addHelpButton('write_goal', 'write_goal', 'mod_writeassistdev');
+        $mform->setDefault('write_goal', '');
+        
+        $mform->addElement('textarea', 'edit_goal', get_string('edit_goal', 'mod_writeassistdev'), array('rows' => 3, 'cols' => 60));
+        $mform->setType('edit_goal', PARAM_TEXT);
+        $mform->addHelpButton('edit_goal', 'edit_goal', 'mod_writeassistdev');
+        $mform->setDefault('edit_goal', '');
 
         // Add standard elements, common to all modules.
         $this->standard_coursemodule_elements();
@@ -67,6 +112,27 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
                 'format' => $defaultvalues['introformat']
             );
         }
+        
+        // CRITICAL: Ensure goal fields are ALWAYS present in the array with string values
+        // Moodle's form JavaScript requires all form fields to exist in $defaultvalues
+        // If a field is missing entirely, YUI form init will fail with "null is not an object"
+        // This prevents "TypeError: null is not an object (evaluating 'this.field.setAttribute')"
+        
+        // Always set these fields, even if they don't exist in the database record
+        if (!array_key_exists('plan_goal', $defaultvalues)) {
+            $defaultvalues['plan_goal'] = '';
+        }
+        if (!array_key_exists('write_goal', $defaultvalues)) {
+            $defaultvalues['write_goal'] = '';
+        }
+        if (!array_key_exists('edit_goal', $defaultvalues)) {
+            $defaultvalues['edit_goal'] = '';
+        }
+        
+        // Convert null to empty string (in case field exists but is null)
+        $defaultvalues['plan_goal'] = ($defaultvalues['plan_goal'] !== null) ? (string)$defaultvalues['plan_goal'] : '';
+        $defaultvalues['write_goal'] = ($defaultvalues['write_goal'] !== null) ? (string)$defaultvalues['write_goal'] : '';
+        $defaultvalues['edit_goal'] = ($defaultvalues['edit_goal'] !== null) ? (string)$defaultvalues['edit_goal'] : '';
     }
 
     /**

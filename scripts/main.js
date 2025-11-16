@@ -111,11 +111,6 @@ class ProjectManager {
         try {
             const project = await this.api.loadProject();
             if (project) {
-                console.log('=== ProjectManager.loadProject() START ===');
-                console.log('Loaded project from API:', JSON.stringify(project, null, 2));
-                console.log('Goal in loaded project:', project.metadata?.goal);
-                console.log('Goal type:', typeof project.metadata?.goal);
-                
                 // Ensure goal is set before setting state
                 if (!project.metadata) {
                     project.metadata = {};
@@ -125,14 +120,11 @@ class ProjectManager {
                 } else {
                     project.metadata.goal = String(project.metadata.goal);
                 }
-                console.log('Goal after normalization:', project.metadata.goal);
                 
                 this.globalState.setState(project);
                 // Trigger 'ready' event so modules can restore their UI
                 this.globalState.notifyListeners('ready', project);
-                console.log('=== ProjectManager.loadProject() END ===');
             } else {
-                console.warn('No existing project found, creating new one');
                 this.createNewProject();
             }
         } catch (error) {
@@ -188,33 +180,18 @@ class ProjectManager {
         });
         
         // Get goal from UI element (always read current value for accurate saves)
-        // This ensures we always save the latest user input, matching Google Docs behavior
-        const goalInput = document.getElementById('assignmentGoal');
-        let goal = '';
-        
-        if (goalInput) {
-            // Always use the current UI value (user's latest input)
-            // This is the source of truth during save operations
-            goal = goalInput.value.trim();
-        } else {
-            // Fallback to state if element not found (shouldn't happen during save)
-            goal = collectedData.metadata?.goal || '';
-        }
-        
-        // Update metadata with current tab, instructor instructions, and goal
+        // Update metadata with current tab and instructor instructions
+        // Note: Goals are now instructor-level per tab, not stored in student metadata
         if (window.aiWritingAssistant && window.aiWritingAssistant.tabManager) {
             const currentTab = window.aiWritingAssistant.tabManager.getCurrentTab();
             collectedData.metadata = { 
                 ...collectedData.metadata, 
                 currentTab,
-                instructorInstructions: window.instructorDescription || '',
-                goal: goal
+                instructorInstructions: window.instructorDescription || ''
             };
         } else {
-            // Still set goal even if tabManager not ready
             collectedData.metadata = {
-                ...collectedData.metadata,
-                goal: goal
+                ...collectedData.metadata
             };
         }
         
@@ -240,8 +217,6 @@ class ProjectManager {
             // Collect all data from modules and current state
             const completeProjectData = this.collectAllData();
             
-            console.log('ProjectManager.saveProject(): write content length=', 
-                completeProjectData?.write?.content?.length || 0);
             
             const success = await this.api.saveProject(completeProjectData);
             
@@ -416,16 +391,117 @@ class PlanModule {
     }
 
     init() {
+        // Use event delegation on document to catch clicks even if buttons aren't found yet
+        this.setupEventDelegation();
+        
         this.setupElements();
         this.setupDragAndDrop();
         this.setupEventListeners();
         this.setupStateSync();
-        this.loadTemplate();
         
-        // Mark as initialized after template is loaded
+        // Mark as initialized (sections will load when ready event fires)
         this.isInitialized = true;
         
-        // Test bubble functionality removed
+        // Load sections immediately if state already exists, otherwise wait for ready event
+        const currentState = this.globalState.getState();
+        if (currentState.plan && (currentState.plan.customSections || currentState.plan.removedSections)) {
+            // State already loaded, load sections now
+            this.loadSections();
+        } else {
+            // State not loaded yet, wait for ready event
+            this.globalState.subscribe('ready', () => {
+                this.loadSections();
+            });
+        }
+        
+        // Update button states after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            this.updateAskAIButtonState();
+            this.updateAskAIOutlineButtonState();
+        }, 200);
+    }
+    
+    setupEventDelegation() {
+        // Only set up once to avoid duplicate listeners
+        if (this.eventDelegationSetup) {
+            return;
+        }
+        this.eventDelegationSetup = true;
+        
+        console.log('Setting up event delegation for Ask AI button');
+        // Use event delegation to catch clicks even if buttons aren't in DOM yet or are hidden
+        // Only handle our specific buttons - don't interfere with chat or other buttons
+        this.delegationHandler = (e) => {
+            // Only handle if it's one of our buttons - don't interfere with chat or other buttons
+            const targetId = e.target.id;
+            const isAskAI = targetId === 'askAIButton' || e.target.closest('#askAIButton');
+            const isAskAIOutline = targetId === 'askAIOutlineButton' || e.target.closest('#askAIOutlineButton');
+            const isAddIdea = targetId === 'addIdeaBubble';
+            const isAddSection = targetId === 'addCustomSection' || e.target.closest('#addCustomSection');
+            
+            // Skip if it's not one of our buttons (let other handlers work normally)
+            if (!isAskAI && !isAskAIOutline && !isAddIdea && !isAddSection) {
+                return;
+            }
+            
+            // Handle Ask AI button (Brainstorm) - check button itself or any child element (like span)
+            if (isAskAI) {
+                const askAIButton = targetId === 'askAIButton' ? e.target : e.target.closest('#askAIButton');
+                
+                if (askAIButton) {
+                    // Check both disabled attribute and disabled class
+                    if (askAIButton.disabled || askAIButton.classList.contains('disabled')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Ask AI button clicked via event delegation - calling handleAskAIClick');
+                    this.handleAskAIClick();
+                    return;
+                }
+            }
+
+            // Handle Ask AI Outline button - check button itself or any child element (like span)
+            if (isAskAIOutline) {
+                const askAIOutlineButton = targetId === 'askAIOutlineButton' ? e.target : e.target.closest('#askAIOutlineButton');
+                
+                if (askAIOutlineButton) {
+                    // Check both disabled attribute and disabled class
+                    if (askAIOutlineButton.disabled || askAIOutlineButton.classList.contains('disabled')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Ask AI Outline button clicked via event delegation - calling handleAskAIOutlineClick');
+                    this.handleAskAIOutlineClick();
+                    return;
+                }
+            }
+            
+            // Handle Add Idea button
+            if (isAddIdea) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleAddIdeaClick(e);
+                return;
+            }
+            
+            // Handle Add Custom Section button
+            if (isAddSection) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.addCustomSection();
+                return;
+            }
+        };
+        
+        document.addEventListener('click', this.delegationHandler);
     }
 
     setupElements() {
@@ -434,6 +510,23 @@ class PlanModule {
             outlineItems: this.domManager.getElement('outlineItems'),
             addIdeaBubbleBtn: this.domManager.getElement('addIdeaBubble')
         };
+        
+        // If buttons not found, try again after a short delay (in case DOM isn't fully ready)
+        if (!this.elements.addIdeaBubbleBtn || !document.getElementById('addCustomSection')) {
+            setTimeout(() => {
+                this.elements.addIdeaBubbleBtn = this.domManager.getElement('addIdeaBubble');
+                if (this.elements.addIdeaBubbleBtn) {
+                    this.domManager.addEventListener(this.elements.addIdeaBubbleBtn, 'click', this.handleAddIdeaClick);
+                }
+                
+                const addCustomSectionBtn = document.getElementById('addCustomSection');
+                if (addCustomSectionBtn) {
+                    addCustomSectionBtn.addEventListener('click', () => {
+                        this.addCustomSection();
+                    });
+                }
+            }, 200);
+        }
     }
 
     setupDragAndDrop() {
@@ -461,68 +554,107 @@ class PlanModule {
                 }
             });
         }
+
+        // Section sortable will be set up after sections are created
+        // (called from createSections method)
     }
 
     setupEventListeners() {
-        if (this.elements.addIdeaBubbleBtn) {
-            this.domManager.addEventListener(this.elements.addIdeaBubbleBtn, 'click', this.handleAddIdeaClick);
+        // Retry finding buttons multiple times with delays
+        const maxRetries = 5;
+        let retryCount = 0;
+        
+        const trySetupButtons = () => {
+            retryCount++;
+            
+            // Add Idea button
+            let btnFound = false;
+            if (!this.elements.addIdeaBubbleBtn) {
+                const btn = document.getElementById('addIdeaBubble');
+                if (btn) {
+                    this.elements.addIdeaBubbleBtn = btn;
+                    this.domManager.addEventListener(btn, 'click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.handleAddIdeaClick(e);
+                    });
+                    btnFound = true;
+                }
+            } else {
+                btnFound = true;
         }
+        
+        // Add custom section button
+            let sectionBtnFound = false;
+        const addCustomSectionBtn = document.getElementById('addCustomSection');
+        if (addCustomSectionBtn) {
+                // Remove any existing listeners first
+                const newBtn = addCustomSectionBtn.cloneNode(true);
+                addCustomSectionBtn.parentNode.replaceChild(newBtn, addCustomSectionBtn);
+                
+                newBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                this.addCustomSection();
+            });
+                sectionBtnFound = true;
+            }
+            
+            // Ask AI button - use event delegation instead of direct listener
+            // The button click is handled in setupEventDelegation()
+            const askAIButton = document.getElementById('askAIButton');
+            if (askAIButton) {
+                // Just update the button state, event delegation handles clicks
+                this.updateAskAIButtonState();
+            }
+            
+            // Ask AI Outline button - update state independently
+            const askAIOutlineButton = document.getElementById('askAIOutlineButton');
+            if (askAIOutlineButton) {
+                this.updateAskAIOutlineButtonState();
+            }
+            
+            if (btnFound && sectionBtnFound) {
+                return true;
+            }
+            
+            if (retryCount < maxRetries) {
+                setTimeout(trySetupButtons, 300);
+            }
+            
+            return false;
+        };
+        
+        // Try immediately
+        trySetupButtons();
         
         // Setup goal input autosave (Google Docs style)
         // - Debounced autosave on input (after user stops typing)
         // - Immediate save on blur (when user clicks away)
         // - Save on page unload
-        const goalInput = document.getElementById('assignmentGoal');
-        if (goalInput && this.projectManager) {
-            let debounceTimer = null;
-            const debounceMs = 300; // Same as Write/Edit modules for consistency
-            
-            // Autosave on input (debounced) - like Google Docs
-            goalInput.addEventListener('input', () => {
-                // Clear previous timer
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                }
-                
-                // Set new timer for debounced save
-                debounceTimer = setTimeout(() => {
-                    console.log('PlanModule: Goal autosave triggered (debounced input)');
-                    // Direct save like Write/Edit modules for fast, instant feel
-                    this.projectManager.saveProject().catch((e) => {
-                        console.error('PlanModule: Goal autosave failed:', e);
-                    });
-                }, debounceMs);
-            });
-            
-            // Immediate save on blur (when user clicks away) - like Google Docs
-            goalInput.addEventListener('blur', () => {
-                // Cancel any pending debounced save
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = null;
-                }
-                
-                // Immediate save on blur
-                console.log('PlanModule: Goal save triggered (blur)');
-                this.projectManager.saveProject().catch((e) => {
-                    console.error('PlanModule: Goal save on blur failed:', e);
-                });
-            });
-            
-            // Save on page unload (best-effort) - like Google Docs
-            window.addEventListener('beforeunload', () => {
-                // Cancel any pending debounced save
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = null;
-                }
-                
-                // Fire-and-forget save on unload
-                // Note: Browsers may not wait for this, but it helps catch unsaved changes
-                this.projectManager.saveProject().catch(() => {});
-            }, { once: true });
-        }
+        // Goal editing removed - goals are now read-only and come from backend set by instructor
+    }
+    
+    async saveInstructorGoal(tab, goalValue) {
+        if (!window.canEditGoals) return; // Only instructors can save
         
+        try {
+            const api = this.projectManager?.api;
+            if (!api) return;
+            
+            await api.saveInstructorGoal(tab, goalValue);
+            
+            // Update window.instructorGoals to reflect the change
+            if (window.instructorGoals) {
+                window.instructorGoals[tab] = goalValue;
+            }
+        } catch (error) {
+            console.error('Failed to save instructor goal:', error);
+            throw error;
+        }
+    }
+    
+    setupEventListeners() {
         // Listen for bubble content changes - update content but don't autosave on every keystroke
         // Save happens on blur (when user clicks away) to prevent multiple DB entries
         document.addEventListener('bubbleContentChanged', (event) => {
@@ -541,7 +673,11 @@ class PlanModule {
         });
     }
 
-    handleAddIdeaClick() {
+    handleAddIdeaClick(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         this.addIdeaBubble();
     }
 
@@ -560,7 +696,9 @@ class PlanModule {
                 this.bubbles.delete(bubbleId);
                 const node = document.querySelector(`.idea-bubble[data-id="${bubbleId}"]`);
                 if (node && node.parentNode) node.parentNode.removeChild(node);
-                console.log('PlanModule: Bubble deleted from DB and UI:', bubbleId);
+                // Update Ask AI button state after bubble is deleted
+                this.updateAskAIButtonState();
+                this.updateAskAIOutlineButtonState();
             } else {
                 console.warn('PlanModule: Backend delete returned false for', bubbleId);
             }
@@ -577,47 +715,30 @@ class PlanModule {
 
     setupStateSync() {
         // Only restore UI when project is initially loaded, not on every state change
-        this.globalState.subscribe('ready', (state) => {
-            console.log('DEBUG: PlanModule received ready event with state:', state);
-            if (this.isInitialized && state.plan && state.plan.ideas) {
-                console.log('DEBUG: Ready event - restoring bubbles from state.plan.ideas:', state.plan.ideas);
-                this.restoreBubblesFromState(state.plan.ideas);
-            } else {
-                console.log('DEBUG: Ready event - no ideas to restore or not initialized');
-                console.log('  isInitialized:', this.isInitialized);
-                console.log('  state.plan:', state.plan);
-                console.log('  state.plan.ideas:', state.plan ? state.plan.ideas : 'N/A');
+        this.globalState.subscribe('ready', async (state) => {
+            // Load sections from database FIRST (before restoring bubbles)
+            // Sections must exist before we can restore bubbles to them
+            if (this.isInitialized) {
+                this.loadSections();
+                
+                // Wait a bit for sections to be created in DOM
+                // Use requestAnimationFrame to ensure DOM is updated
+                await new Promise(resolve => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            resolve();
+                        });
+                    });
+                });
             }
             
-            // Also restore goal in PlanModule when ready event fires (multiple attempts)
-            // Only restore if input is empty (preserve user input if they've typed)
-            if (state.metadata && state.metadata.goal) {
-                console.log('PlanModule: Goal found in state, will restore:', state.metadata.goal);
-                const restoreGoal = () => {
-                    const goalInput = document.getElementById('assignmentGoal');
-                    if (goalInput) {
-                        const currentValue = goalInput.value.trim();
-                        // Only restore if input is empty (don't overwrite user input)
-                        if (!currentValue && goalInput.value !== state.metadata.goal) {
-                            goalInput.value = state.metadata.goal;
-                            console.log('PlanModule: Goal restored to:', goalInput.value);
-                            return true;
-                        } else if (currentValue) {
-                            console.log('PlanModule: Goal input has value, preserving user input:', currentValue);
-                            return true;
-                        }
-                        return true;
-                    }
-                    return false;
-                };
-                
-                // Try immediately
-                if (!restoreGoal()) {
-                    setTimeout(restoreGoal, 100);
-                }
-                setTimeout(restoreGoal, 300);
-                setTimeout(restoreGoal, 1000);
+            // Now restore bubbles after sections are loaded
+            if (this.isInitialized && state.plan && state.plan.ideas) {
+                this.restoreBubblesFromState(state.plan.ideas);
             }
+            
+            // Goals are now instructor-level and displayed per-tab
+            // No need to restore from student metadata
         });
         
         // Listen for AI-generated updates
@@ -651,8 +772,6 @@ class PlanModule {
     }
 
     restoreBubblesFromState(ideas) {
-        console.log('DEBUG: restoreBubblesFromState called with:', ideas);
-        
         // Handle both array and object formats (like chatHistory)
         let ideasArray;
         if (Array.isArray(ideas)) {
@@ -660,39 +779,48 @@ class PlanModule {
         } else if (typeof ideas === 'object' && ideas !== null) {
             // Convert object to array
             ideasArray = Object.values(ideas);
-            console.log('DEBUG: Converted object ideas to array:', ideasArray);
         } else {
-            console.log('DEBUG: No ideas to restore or invalid format');
             return;
         }
-
-        console.log('DEBUG: Restoring', ideasArray.length, 'ideas');
 
         // Clear existing bubbles
         this.clearAllBubbles();
 
         // Restore bubbles to their correct locations
-        ideasArray.forEach((idea, index) => {
-            console.log(`DEBUG: Processing idea ${index}:`, idea);
-            
+        ideasArray.forEach((idea) => {
             if (!idea.id || !idea.content) {
                 console.warn('Invalid idea data:', idea);
                 return;
             }
 
             const bubble = new BubbleComponent(idea.content, idea.id, idea.aiGenerated || false);
-            bubble.location = idea.location || 'brainstorm'; // Set location for tracking
-            bubble.sectionId = idea.sectionId || null; // Set sectionId for outline bubbles
             this.bubbles.set(bubble.id, bubble);
 
+            // Use setLocation to properly update both internal state and DOM attributes
             if (idea.location === 'brainstorm') {
+                bubble.setLocation('brainstorm', null);
                 if (this.elements.ideaBubbles) {
                     this.elements.ideaBubbles.appendChild(bubble.element);
-                    console.log('DEBUG: Added bubble to brainstorm:', idea.content);
+                }
+                
+                // Add event listeners for content changes (same as in addIdeaBubble)
+                const contentDiv = bubble.element.querySelector('.bubble-content');
+                if (contentDiv) {
+                    bubble.element.addEventListener('bubbleContentChanged', () => {
+                        this.updateAskAIButtonState();
+                this.updateAskAIOutlineButtonState();
+                    });
+                    contentDiv.addEventListener('input', () => {
+                        this.updateAskAIButtonState();
+                this.updateAskAIOutlineButtonState();
+                    });
                 }
             } else if (idea.location === 'outline' && idea.sectionId) {
+                // Set location first to update DOM attributes
+                bubble.setLocation('outline', idea.sectionId);
+                
                 const section = this.sections.get(idea.sectionId);
-                if (section) {
+                if (section && section.element) {
                     // Add bubble to the section's outline container
                     const outlineContainer = section.element.querySelector('.outline-container');
                     if (outlineContainer) {
@@ -703,16 +831,37 @@ class PlanModule {
                             placeholder.remove();
                         }
                         outlineContainer.classList.remove('empty');
+                    } else {
+                        // Fallback: add to brainstorm if container not found
+                        bubble.setLocation('brainstorm', null);
+                        if (this.elements.ideaBubbles) {
+                            this.elements.ideaBubbles.appendChild(bubble.element);
+                        }
                     }
                 } else {
-                    console.warn('Section not found for bubble:', idea.sectionId);
+                    console.warn('Section not found for bubble:', idea.sectionId, '- bubble will be added to brainstorm as fallback');
+                    // Fallback: add to brainstorm if section not found
+                    bubble.setLocation('brainstorm', null);
+                    if (this.elements.ideaBubbles) {
+                        this.elements.ideaBubbles.appendChild(bubble.element);
+                    }
                 }
             } else {
                 console.warn('Invalid bubble location or missing sectionId:', idea);
+                // Fallback: add to brainstorm
+                bubble.setLocation('brainstorm', null);
+                if (this.elements.ideaBubbles) {
+                    this.elements.ideaBubbles.appendChild(bubble.element);
+                }
             }
         });
         
-        console.log('DEBUG: Finished restoring bubbles. Map now has', this.bubbles.size, 'entries');
+        // Update Ask AI button state after restoring bubbles
+        // Use setTimeout to ensure DOM is fully updated
+        setTimeout(() => {
+            this.updateAskAIButtonState();
+            this.updateAskAIOutlineButtonState();
+        }, 100);
     }
 
     clearAllBubbles() {
@@ -747,54 +896,145 @@ class PlanModule {
         if (bubble) {
             // Determine new location
             if (evt.to === this.elements.ideaBubbles) {
-                bubble.setLocation('brainstorm');
+                // Moving back to brainstorm - clear sectionId
+                bubble.setLocation('brainstorm', null);
             } else {
                 // Find which section this was dropped into
                 const sectionElement = evt.to.closest('.template-section');
                 if (sectionElement) {
                     const sectionId = sectionElement.dataset.sectionId;
-                    bubble.setLocation('outline', sectionId);
+                    if (sectionId) {
+                        bubble.setLocation('outline', sectionId);
+                    } else {
+                        console.warn('PlanModule.handleDragEnd(): Section element found but no sectionId');
+                    }
                 } else {
-                    console.warn('Could not find section element for dropped bubble');
+                    // Try to find section from the dropzone container
+                    const dropzone = evt.to.closest('.outline-container');
+                    if (dropzone && dropzone.dataset.sectionId) {
+                        const sectionId = dropzone.dataset.sectionId;
+                        bubble.setLocation('outline', sectionId);
+                    } else {
+                        console.warn('PlanModule.handleDragEnd(): Could not find section element for dropped bubble');
+                    }
                 }
             }
         } else {
-            console.warn('Bubble not found in bubbles map:', bubbleId);
+            console.warn('PlanModule.handleDragEnd(): Bubble not found in bubbles map:', bubbleId);
         }
 
         // Explicitly save when moving bubble between brainstorm and outline
         try {
             await this.projectManager.saveProject();
         } catch (e) {
-            console.warn('PlanModule: Save after drag failed:', e?.message || e);
+            console.warn('PlanModule.handleDragEnd(): Save after drag failed:', e?.message || e);
         }
     }
 
-    async loadTemplate() {
+    /**
+     * Load sections from database or create default example sections
+     * No template dependency - just example sections to guide users
+     */
+    loadSections() {
         try {
-            const templateId = window.selectedTemplate || 'argumentative';
-            const template = await this.api.loadTemplate(templateId);
+            // Prevent duplicate loading
+            if (this.sectionsLoading) {
+                return;
+            }
+            this.sectionsLoading = true;
             
-            if (template && template.sections && template.sections.length > 0) {
-            this.createSections(template.sections);
+            const state = this.globalState.getState();
+            
+            // Get saved sections from database
+            const savedSections = state.plan?.customSections || [];
+            const customTitles = state.plan?.customSectionTitles || {};
+            const removedSections = state.plan?.removedSections || [];
+            
+            // Start with default example sections (guidance for users)
+            const defaultSections = this.getDefaultExampleSections();
+            
+            // Filter out removed sections
+            const activeDefaults = defaultSections.filter(section => 
+                !removedSections.includes(section.id)
+            );
+            
+            // Apply custom titles to default sections
+            const sectionsWithCustomTitles = activeDefaults.map(section => ({
+                ...section,
+                title: customTitles[section.id] || section.title,
+                isCustom: false
+            }));
+            
+            // Add user's custom sections (filter out any that might have been removed)
+            const validCustomSections = savedSections.filter(cs => 
+                !removedSections.includes(cs.id)
+            );
+            const customSectionsWithDefaults = validCustomSections.map(cs => ({
+                ...cs,
+                required: false,
+                allowMultiple: true,
+                editableTitle: true,
+                editableDescription: true,
+                isCustom: true,
+                outline: []
+            }));
+            
+            // Combine all sections
+            let allSections = [...sectionsWithCustomTitles, ...customSectionsWithDefaults];
+            
+            // Apply saved section order if available
+            const savedOrder = state.plan?.sectionOrder || [];
+            if (savedOrder.length > 0) {
+                // Create a map for quick lookup
+                const sectionMap = new Map(allSections.map(s => [s.id, s]));
+                
+                // Reorder sections based on saved order
+                const orderedSections = [];
+                const unorderedSections = [];
+                
+                // First, add sections in the saved order
+                savedOrder.forEach(sectionId => {
+                    if (sectionMap.has(sectionId)) {
+                        orderedSections.push(sectionMap.get(sectionId));
+                        sectionMap.delete(sectionId);
+                    }
+                });
+                
+                // Then, add any sections that weren't in the saved order (new sections)
+                sectionMap.forEach(section => {
+                    unorderedSections.push(section);
+                });
+                
+                allSections = [...orderedSections, ...unorderedSections];
+            }
+            
+            if (allSections.length > 0) {
+                this.createSections(allSections);
             } else {
-                console.warn('No template sections found, creating default sections');
+                // Fallback: create default sections if nothing loaded
                 this.createDefaultSections();
             }
+            
+            this.sectionsLoading = false;
         } catch (error) {
-            console.error('Failed to load template:', error);
-            console.warn('Creating default sections as fallback');
+            console.error('Failed to load sections:', error);
+            console.warn('Creating default example sections as fallback');
             this.createDefaultSections();
+            this.sectionsLoading = false;
         }
     }
     
-    createDefaultSections() {
-        const defaultSections = [
+    /**
+     * Get default example sections (dummy columns to guide users)
+     * These are just examples - users can delete/edit them freely
+     */
+    getDefaultExampleSections() {
+        return [
             {
                 id: 'introduction',
                 title: 'Introduction',
                 description: 'Hook, background, and thesis statement',
-                required: true,
+                required: false, // Not required - users can delete
                 allowMultiple: false,
                 editableTitle: true,
                 editableDescription: true,
@@ -804,7 +1044,7 @@ class PlanModule {
                 id: 'main-arguments',
                 title: 'Main Arguments',
                 description: 'Your key points supporting your thesis',
-                required: true,
+                required: false,
                 allowMultiple: true,
                 editableTitle: true,
                 editableDescription: true,
@@ -814,14 +1054,18 @@ class PlanModule {
                 id: 'conclusion',
                 title: 'Conclusion',
                 description: 'Restate thesis and summarize main points',
-                required: true,
+                required: false,
                 allowMultiple: false,
                 editableTitle: true,
                 editableDescription: true,
                 outline: []
             }
         ];
-        
+    }
+    
+    createDefaultSections() {
+        // Use the same default example sections
+        const defaultSections = this.getDefaultExampleSections();
         this.createSections(defaultSections);
     }
 
@@ -834,10 +1078,208 @@ class PlanModule {
             const section = new SectionComponent(sectionData);
             this.sections.set(section.id, section);
             
+            // Store the original title from template (for comparison later)
+            // This is the title that was set when the section was created
+            if (!section.originalTitle) {
+                section.originalTitle = section.title;
+            }
+            
+            // Store default title if this is a default example section
+            if (!section.isCustom && !section.defaultTitle) {
+                const defaultSection = this.getDefaultExampleSections().find(s => s.id === section.id);
+                if (defaultSection) {
+                    section.defaultTitle = defaultSection.title;
+                }
+            }
+            
             // Setup drag and drop for this section
             this.setupSectionDragAndDrop(section);
             
+            // Setup event listeners for section title changes and deletions
+            this.setupSectionEventListeners(section);
+            
             this.elements.outlineItems.appendChild(section.element);
+        });
+        
+        // Re-initialize section sortable if it doesn't exist or sections were recreated
+        if (this.elements.outlineItems) {
+            this.setupSectionSortable();
+        }
+    }
+    
+    setupSectionSortable() {
+        if (typeof Sortable === 'undefined') return;
+        if (!this.elements.outlineItems) return;
+        
+        // Destroy existing sortable if it exists
+        if (this.sectionSortable) {
+            this.sectionSortable.destroy();
+        }
+        
+        // Create new sortable instance for sections
+        // Allow dragging the entire section (not just header)
+        this.sectionSortable = new Sortable(this.elements.outlineItems, {
+            animation: 200,
+            ghostClass: 'section-ghost',
+            chosenClass: 'section-chosen',
+            filter: '.section-title, .section-delete-btn, .outline-container, .bubble-content', // Prevent dragging from these elements
+            preventOnFilter: false, // Allow normal interaction with filtered elements
+            onEnd: (evt) => {
+                // Section order changed - save immediately
+                this.handleSectionReorder();
+            }
+        });
+    }
+    
+    setupSectionEventListeners(section) {
+        // Listen for title changes
+        section.element.addEventListener('sectionTitleChanged', (event) => {
+            const { sectionId, newTitle } = event.detail;
+            const section = this.sections.get(sectionId);
+            if (section) {
+                section.title = newTitle;
+                // Trigger autosave
+                this.projectManager.scheduleAutoSave('section-title', true);
+            }
+        });
+        
+        // Listen for section deletions/removals (both custom and template sections)
+        section.element.addEventListener('sectionDeleted', (event) => {
+            const { sectionId, isCustom } = event.detail;
+            if (isCustom) {
+                // Custom section - delete it completely
+                this.deleteCustomSection(sectionId);
+            } else {
+                // Template section - mark as removed (user doesn't want it)
+                this.removeTemplateSection(sectionId);
+            }
+        });
+    }
+    
+    addCustomSection() {
+        // Generate unique ID for custom section
+        const sectionId = 'custom-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        const newSection = {
+            id: sectionId,
+            title: 'New Section',
+            description: '',
+            required: false,
+            allowMultiple: true,
+            editableTitle: true,
+            editableDescription: true,
+            isCustom: true,
+            outline: []
+        };
+        
+        const section = new SectionComponent(newSection);
+        this.sections.set(section.id, section);
+        
+        // Setup drag and drop
+        this.setupSectionDragAndDrop(section);
+        
+        // Setup event listeners
+        this.setupSectionEventListeners(section);
+        
+        // Add to DOM
+        if (this.elements.outlineItems) {
+            this.elements.outlineItems.appendChild(section.element);
+            
+            // Focus on the title so user can immediately edit it
+            const titleElement = section.element.querySelector('.section-title');
+            if (titleElement) {
+                setTimeout(() => {
+                    titleElement.focus();
+                    // Select all text for easy replacement
+                    const range = document.createRange();
+                    range.selectNodeContents(titleElement);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }, 100);
+            }
+        } else {
+            // Try to find it directly
+            const outlineItems = document.getElementById('outlineItems');
+            if (outlineItems) {
+                this.elements.outlineItems = outlineItems;
+                outlineItems.appendChild(section.element);
+            }
+        }
+        
+        // Save immediately to ensure section is persisted
+        this.projectManager.saveProject().catch(err => {
+            console.error('PlanModule.addCustomSection(): Failed to save:', err);
+        });
+        
+        return section;
+    }
+    
+    deleteCustomSection(sectionId) {
+        const section = this.sections.get(sectionId);
+        if (!section) return;
+        
+        // Only allow deletion of custom sections
+        if (!section.isCustom) {
+            console.warn('Cannot delete required section:', sectionId);
+            return;
+        }
+        
+        // Move all bubbles in this section back to brainstorm
+        const bubbles = section.getBubbles();
+        bubbles.forEach(bubbleData => {
+            const bubble = this.bubbles.get(bubbleData.id);
+            if (bubble) {
+                bubble.setLocation('brainstorm', null);
+                if (this.elements.ideaBubbles) {
+                    this.elements.ideaBubbles.appendChild(bubble.element);
+                }
+            }
+        });
+        
+        // Remove from sections map
+        this.sections.delete(sectionId);
+        
+        // Remove from DOM
+        if (section.element.parentNode) {
+            section.element.parentNode.removeChild(section.element);
+        }
+        
+        // Save immediately to ensure deletion is persisted
+        this.projectManager.saveProject().catch(err => {
+            console.error('PlanModule.deleteCustomSection(): Failed to save:', err);
+        });
+    }
+    
+    removeTemplateSection(sectionId) {
+        const section = this.sections.get(sectionId);
+        if (!section) {
+            console.warn(`PlanModule: Cannot remove section ${sectionId} - not found`);
+            return;
+        }
+        
+        // Move all bubbles from this section back to brainstorm
+        const bubbles = section.getBubbles();
+        bubbles.forEach(bubbleData => {
+            const bubble = this.bubbles.get(bubbleData.id);
+            if (bubble) {
+                bubble.setLocation('brainstorm', null);
+                if (this.elements.ideaBubbles) {
+                    this.elements.ideaBubbles.appendChild(bubble.element);
+                }
+            }
+        });
+        
+        // Remove from sections map
+        this.sections.delete(sectionId);
+        
+        // Remove from DOM
+        if (section.element.parentNode) {
+            section.element.parentNode.removeChild(section.element);
+        }
+        
+        // Save immediately to ensure removal is persisted
+        this.projectManager.saveProject().catch(err => {
+            console.error('PlanModule.removeTemplateSection(): Failed to save:', err);
         });
     }
 
@@ -865,6 +1307,18 @@ class PlanModule {
         }
     }
 
+    handleSectionReorder() {
+        // Get current section order from DOM
+        const sectionOrder = Array.from(this.elements.outlineItems.children).map(child => {
+            return child.dataset.sectionId || child.id.replace('section-', '');
+        });
+        
+        // Save immediately
+        this.projectManager.saveProject().catch(err => {
+            console.error('PlanModule.handleSectionReorder(): Failed to save:', err);
+        });
+    }
+
     addIdeaBubble(content = ' ') {
         const bubble = new BubbleComponent(content);
         bubble.location = 'brainstorm'; // Set location for tracking
@@ -873,7 +1327,22 @@ class PlanModule {
         if (this.elements.ideaBubbles) {
             this.elements.ideaBubbles.appendChild(bubble.element);
             const contentDiv = bubble.element.querySelector('.bubble-content');
+            if (contentDiv) {
             contentDiv.focus();
+            
+            // Listen to content changes in real-time
+            bubble.element.addEventListener('bubbleContentChanged', () => {
+                // Update button state whenever content changes
+                this.updateAskAIButtonState();
+                this.updateAskAIOutlineButtonState();
+            });
+            
+            // Also listen to input events for immediate updates
+            contentDiv.addEventListener('input', () => {
+                // Update button state as user types
+                this.updateAskAIButtonState();
+                this.updateAskAIOutlineButtonState();
+            });
             
             // Save on blur (when user finishes editing)
             contentDiv.addEventListener('blur', () => {
@@ -887,27 +1356,33 @@ class PlanModule {
                     bubble.content = finalContent || '';
                     // Don't delete immediately - let user edit it
                 }
+                // Update button state even if content is empty (bubble might be removed)
+                this.updateAskAIButtonState();
+                this.updateAskAIOutlineButtonState();
             }, { once: false });
+            }
+        } else {
+            // Try to find it directly
+            const ideaBubbles = document.getElementById('ideaBubbles');
+            if (ideaBubbles) {
+                this.elements.ideaBubbles = ideaBubbles;
+                ideaBubbles.appendChild(bubble.element);
+            }
         }
         
-        console.log('DEBUG: Added bubble to Map:', this.bubbles.size, 'bubbles');
-        console.log('DEBUG: Bubble data:', { id: bubble.id, content: bubble.content, location: bubble.location });
+        // Update Ask AI button state when bubble is added
+        this.updateAskAIButtonState();
         
         // Don't autosave immediately - wait until user finishes editing (blur event)
-        
     }
 
 
     // Collect current bubble data from UI elements (used only during save operations)
     collectBubbleData() {
         // Get all bubbles from our tracking Map instead of DOM
-        const brainstormBubbles = [];
-        const outlineBubbles = [];
+        const allBubbles = [];
         
-        console.log('DEBUG: collectBubbleData - bubbles Map has', this.bubbles.size, 'entries');
-        
-        this.bubbles.forEach((bubble, id) => {
-            console.log('DEBUG: Processing bubble:', id, bubble);
+        this.bubbles.forEach((bubble) => {
             const bubbleData = {
                 id: bubble.id,
                 content: bubble.content,
@@ -916,18 +1391,9 @@ class PlanModule {
                 aiGenerated: bubble.aiGenerated || false
             };
             
-            if (bubbleData.location === 'brainstorm') {
-                brainstormBubbles.push(bubbleData);
-            } else if (bubbleData.location === 'outline') {
-                outlineBubbles.push(bubbleData);
-            }
+            allBubbles.push(bubbleData);
         });
 
-        // Combine all bubbles into one array
-        const allBubbles = [...brainstormBubbles, ...outlineBubbles];
-        
-        console.log('DEBUG: collectBubbleData result:', allBubbles);
-        
         return allBubbles;
     }
 
@@ -941,43 +1407,452 @@ class PlanModule {
         // Collect current bubble data from UI elements
         const currentBubbles = this.collectBubbleData();
         
-        // Collect outline structure
+        // Collect outline structure with current titles from DOM
         const outline = [];
+        const customSectionTitles = {};
+        const customSections = [];
+        const removedSections = [];
+        
         this.sections.forEach(section => {
+            // Get current title from DOM (may have been edited)
+            const titleElement = section.element.querySelector('.section-title');
+            const currentTitle = titleElement ? titleElement.textContent.trim() : section.title;
+            
+            // Store original/default title for comparison
+            if (!section.originalTitle) {
+                section.originalTitle = section.title || currentTitle;
+            }
+            
+            // Get default title from example sections if this is a default section
+            if (!section.isCustom && !section.defaultTitle) {
+                const defaultSection = this.getDefaultExampleSections().find(s => s.id === section.id);
+                if (defaultSection) {
+                    section.defaultTitle = defaultSection.title;
+                }
+            }
+            
+            // Update section title if changed
+            if (currentTitle !== section.title) {
+                section.title = currentTitle;
+            }
+            
             const sectionData = {
                 id: section.id,
-                title: section.title,
+                title: currentTitle,
                 description: section.description,
-                bubbles: section.getBubbles()
+                bubbles: section.getBubbles(),
+                isCustom: section.isCustom || false,
+                required: section.required !== false
             };
+            
             outline.push(sectionData);
+            
+            // Track custom sections separately
+            if (section.isCustom) {
+                customSections.push({
+                    id: section.id,
+                    title: currentTitle,
+                    description: section.description
+                });
+            } else {
+                // Track custom titles for default example sections (if title was changed from default)
+                // Use the default title if available, otherwise use original title
+                const compareTitle = section.defaultTitle || section.originalTitle;
+                
+                if (compareTitle && currentTitle !== compareTitle) {
+                    // Title differs from default/original - save as custom
+                    customSectionTitles[section.id] = currentTitle;
+                } else if (!compareTitle && currentTitle) {
+                    // No default/original to compare against, but we have a title - save it
+                    customSectionTitles[section.id] = currentTitle;
+                } else {
+                    // Title matches default - remove from custom titles if it exists
+                    if (customSectionTitles[section.id]) {
+                        delete customSectionTitles[section.id];
+                    }
+                }
+            }
         });
         
-        // Get current template info
-        const templateName = window.selectedTemplate || 'argumentative';
+        // Get removed sections (sections that exist in default examples but not in current sections)
+        const defaultSectionIds = this.getDefaultExampleSections().map(s => s.id);
+        const currentSectionIds = Array.from(this.sections.keys());
+        defaultSectionIds.forEach(defaultSectionId => {
+            // If default example section is not in current sections, it was removed
+            if (!currentSectionIds.includes(defaultSectionId)) {
+                if (!removedSections.includes(defaultSectionId)) {
+                    removedSections.push(defaultSectionId);
+                }
+            }
+        });
+        
+        // Filter out removed sections from customSections (in case a default was somehow marked as custom)
+        const finalCustomSections = customSections.filter(cs => 
+            !removedSections.includes(cs.id)
+        );
+        
+        // Get section order from DOM (current order of sections)
+        const sectionOrder = Array.from(this.elements.outlineItems.children).map(child => {
+            return child.dataset.sectionId || child.id.replace('section-', '');
+        }).filter(id => id); // Filter out any undefined/null IDs
         
         const planData = {
             plan: {
-                templateName: templateName,
-                templateDisplayName: this.getTemplateDisplayName(templateName),
                 ideas: currentBubbles,
                 outline: outline,
-                customSectionTitles: {},
+                customSectionTitles: customSectionTitles,
+                customSections: finalCustomSections, // Store all user-created sections (filtered)
+                removedSections: removedSections, // Store removed example sections
+                sectionOrder: sectionOrder, // Save the order
                 customSectionDescriptions: {}
             }
         };
         
         return planData;
     }
+    
+    // Removed template-related methods - no longer needed
+    
+    // === Ask AI Button Functionality ===
+    
+    updateAskAIButtonState() {
+        const askAIButton = document.getElementById('askAIButton');
+        if (!askAIButton) {
+            console.log('Ask AI button not found');
+            return;
+        }
+        
+        // Count brainstorm ideas (ideas with location === 'brainstorm' and non-empty content)
+        // Use getContent() to get current DOM content, not just bubble.content
+        const brainstormIdeas = Array.from(this.bubbles.values())
+            .filter(bubble => {
+                // Check location first
+                if (bubble.location !== 'brainstorm') {
+                    return false;
+                }
+                
+                // Get content from DOM (current state) or from bubble.content
+                let content = '';
+                if (bubble.getContent) {
+                    content = bubble.getContent().trim();
+                } else {
+                    // Fallback: check DOM directly
+                    const contentDiv = bubble.element?.querySelector('.bubble-content');
+                    if (contentDiv) {
+                        content = contentDiv.textContent.trim();
+                    } else {
+                        content = (bubble.content || '').trim();
+                    }
+                }
+                
+                return content.length > 0;
+            });
+        
+        const ideaCount = brainstormIdeas.length;
+        const hasEnoughIdeas = ideaCount >= 4;
+        
+        console.log('Ask AI Button State Update:', {
+            totalBubbles: this.bubbles.size,
+            brainstormIdeas: ideaCount,
+            hasEnoughIdeas: hasEnoughIdeas,
+            bubbles: Array.from(this.bubbles.values()).map(b => ({
+                id: b.id,
+                location: b.location,
+                content: b.getContent ? b.getContent() : b.content
+            }))
+        });
+        
+        // Enable/disable button
+        askAIButton.disabled = !hasEnoughIdeas;
+        
+        // Update tooltip
+        if (hasEnoughIdeas) {
+            askAIButton.title = 'Ask AI for additional ideas';
+            askAIButton.classList.remove('disabled');
+        } else {
+            askAIButton.title = 'You have to add atleast 4 ideas before';
+            askAIButton.classList.add('disabled');
+        }
+    }
+    
+    async handleAskAIClick() {
+        console.log('=== handleAskAIClick called ===');
+        
+        const askAIButton = document.getElementById('askAIButton');
+        console.log('Button found:', !!askAIButton);
+        console.log('Button disabled:', askAIButton?.disabled);
+        
+        if (!askAIButton) {
+            console.error('Ask AI button not found in DOM');
+            return;
+        }
+        
+        if (askAIButton.disabled) {
+            console.log('Ask AI button is disabled');
+            return;
+        }
+        
+        console.log('Ask AI button clicked, collecting ideas...');
+        
+        // Get brainstorm ideas - use getContent() to get current DOM content
+        const brainstormIdeas = Array.from(this.bubbles.values())
+            .filter(bubble => {
+                // Check location first
+                if (bubble.location !== 'brainstorm') {
+                    return false;
+                }
+                
+                // Get content from DOM (current state) or from bubble.content
+                let content = '';
+                if (bubble.getContent) {
+                    content = bubble.getContent().trim();
+                } else {
+                    // Fallback: check DOM directly
+                    const contentDiv = bubble.element?.querySelector('.bubble-content');
+                    if (contentDiv) {
+                        content = contentDiv.textContent.trim();
+                    } else {
+                        content = (bubble.content || '').trim();
+                    }
+                }
+                
+                return content.length > 0;
+            })
+            .map(bubble => {
+                // Get content using same method as filter
+                if (bubble.getContent) {
+                    return bubble.getContent().trim();
+                } else {
+                    const contentDiv = bubble.element?.querySelector('.bubble-content');
+                    if (contentDiv) {
+                        return contentDiv.textContent.trim();
+                    } else {
+                        return (bubble.content || '').trim();
+                    }
+                }
+            });
+        
+        console.log('Brainstorm ideas collected:', brainstormIdeas);
+        
+        if (brainstormIdeas.length < 4) {
+            console.log('Not enough ideas:', brainstormIdeas.length);
+            return;
+        }
+        
+        // Get thesis/goal from assignment goal element or state
+        let thesis = '';
+        const goalElement = document.getElementById('assignmentGoal');
+        if (goalElement) {
+            thesis = goalElement.textContent.trim();
+        } else {
+            // Fallback to state
+            const state = this.globalState.getState();
+            thesis = state?.metadata?.goal || '';
+        }
+        
+        console.log('Thesis/goal:', thesis);
+        
+        // Format ideas list (comma-separated for inline insertion)
+        const ideasList = brainstormIdeas.join(', ');
+        
+        // Create the prompt
+        const prompt = `I am a student working on a writing assignment, and this is my thesis [${thesis || 'No thesis provided'}]. I have come up with some ideas already [${ideasList}]. Please provide me with 5-10 additional ideas that are related to what I've come up with to help me plan what I want to write about.`;
+        
+        console.log('Prompt created:', prompt);
+        
+        // Send to chat
+        if (window.aiWritingAssistant && window.aiWritingAssistant.chatSystem) {
+            // Don't switch tabs - chat is always visible in the left sidebar
+            // Just ensure the chat section is visible and send the message
+            
+            // Scroll chat into view if needed (optional - chat should already be visible)
+            const chatSection = document.querySelector('.chat-section');
+            if (chatSection) {
+                chatSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Send the message
+            console.log('Sending message to chat system...');
+            await window.aiWritingAssistant.chatSystem.sendMessage(prompt);
+            console.log('Message sent successfully');
+        } else {
+            console.error('Chat system not available', {
+                aiWritingAssistant: window.aiWritingAssistant,
+                chatSystem: window.aiWritingAssistant?.chatSystem
+            });
+        }
+    }
 
-    getTemplateDisplayName(templateId) {
-        const templateNames = {
-            'argumentative': 'Argumentative Essay',
-            'comparative': 'Comparative Essay',
-            'lab-report': 'Lab Report',
-            'test-template': 'Test Template'
-        };
-        return templateNames[templateId] || templateId;
+    // === Ask AI Outline Button Functionality ===
+    
+    updateAskAIOutlineButtonState() {
+        const askAIOutlineButton = document.getElementById('askAIOutlineButton');
+        if (!askAIOutlineButton) {
+            console.log('Ask AI Outline button not found');
+            return;
+        }
+        
+        // Count brainstorm ideas (ideas with location === 'brainstorm' and non-empty content)
+        // Use getContent() to get current DOM content, not just bubble.content
+        const brainstormIdeas = Array.from(this.bubbles.values())
+            .filter(bubble => {
+                // Check location first
+                if (bubble.location !== 'brainstorm') {
+                    return false;
+                }
+                
+                // Get content from DOM (current state) or from bubble.content
+                let content = '';
+                if (bubble.getContent) {
+                    content = bubble.getContent().trim();
+                } else {
+                    // Fallback: check DOM directly
+                    const contentDiv = bubble.element?.querySelector('.bubble-content');
+                    if (contentDiv) {
+                        content = contentDiv.textContent.trim();
+                    } else {
+                        content = (bubble.content || '').trim();
+                    }
+                }
+                
+                return content.length > 0;
+            });
+        
+        const ideaCount = brainstormIdeas.length;
+        const hasEnoughIdeas = ideaCount >= 5;
+        
+        console.log('Ask AI Outline Button State Update:', {
+            totalBubbles: this.bubbles.size,
+            brainstormIdeas: ideaCount,
+            hasEnoughIdeas: hasEnoughIdeas,
+            bubbles: Array.from(this.bubbles.values()).map(b => ({
+                id: b.id,
+                location: b.location,
+                content: b.getContent ? b.getContent() : b.content
+            }))
+        });
+        
+        // Enable/disable button
+        askAIOutlineButton.disabled = !hasEnoughIdeas;
+        console.log('Outline button disabled state:', askAIOutlineButton.disabled, 'hasEnoughIdeas:', hasEnoughIdeas);
+        
+        // Update tooltip
+        if (hasEnoughIdeas) {
+            askAIOutlineButton.title = 'Ask AI to generate an outline based on your brainstorm ideas';
+            askAIOutlineButton.classList.remove('disabled');
+        } else {
+            askAIOutlineButton.title = 'You have to add atleast 4 ideas in brainstorm before';
+            askAIOutlineButton.classList.add('disabled');
+        }
+    }
+    
+    async handleAskAIOutlineClick() {
+        console.log('=== handleAskAIOutlineClick called ===');
+        
+        const askAIOutlineButton = document.getElementById('askAIOutlineButton');
+        console.log('Button found:', !!askAIOutlineButton);
+        console.log('Button disabled:', askAIOutlineButton?.disabled);
+        
+        if (!askAIOutlineButton) {
+            console.error('Ask AI Outline button not found in DOM');
+            return;
+        }
+        
+        if (askAIOutlineButton.disabled) {
+            console.log('Ask AI Outline button is disabled');
+            return;
+        }
+        
+        console.log('Ask AI Outline button clicked, collecting ideas...');
+        
+        // Get brainstorm ideas - use getContent() to get current DOM content
+        const brainstormIdeas = Array.from(this.bubbles.values())
+            .filter(bubble => {
+                // Check location first
+                if (bubble.location !== 'brainstorm') {
+                    return false;
+                }
+                
+                // Get content from DOM (current state) or from bubble.content
+                let content = '';
+                if (bubble.getContent) {
+                    content = bubble.getContent().trim();
+                } else {
+                    // Fallback: check DOM directly
+                    const contentDiv = bubble.element?.querySelector('.bubble-content');
+                    if (contentDiv) {
+                        content = contentDiv.textContent.trim();
+                    } else {
+                        content = (bubble.content || '').trim();
+                    }
+                }
+                
+                return content.length > 0;
+            })
+            .map(bubble => {
+                // Get content using same method as filter
+                if (bubble.getContent) {
+                    return bubble.getContent().trim();
+                } else {
+                    const contentDiv = bubble.element?.querySelector('.bubble-content');
+                    if (contentDiv) {
+                        return contentDiv.textContent.trim();
+                    } else {
+                        return (bubble.content || '').trim();
+                    }
+                }
+            });
+        
+        console.log('Brainstorm ideas collected:', brainstormIdeas);
+        
+        if (brainstormIdeas.length < 4) {
+            console.log('Not enough ideas:', brainstormIdeas.length);
+            return;
+        }
+        
+        // Get topic/goal from assignment goal element or state
+        let topic = '';
+        const goalElement = document.getElementById('assignmentGoal');
+        if (goalElement) {
+            topic = goalElement.textContent.trim();
+        } else {
+            // Fallback to state
+            const state = this.globalState.getState();
+            topic = state?.metadata?.goal || '';
+        }
+        
+        console.log('Topic/goal:', topic);
+        
+        // Format ideas list (comma-separated for inline insertion)
+        const ideasList = brainstormIdeas.join(', ');
+        
+        // Calculate number of paragraphs based on number of ideas (minimum 3, maximum 8)
+        // Rough estimate: 2-3 ideas per paragraph
+        const estimatedParagraphs = Math.max(3, Math.min(8, Math.ceil(brainstormIdeas.length / 2.5)));
+        
+        // Create the prompt
+        const prompt = `I am a student completing a writing assignment on the topic of [${topic || 'No topic provided'}]. I have come up with some ideas that are related to this topic: [${ideasList}]. Provide me with an outline that incorporates my ideas into a ${estimatedParagraphs}-paragraph essay, where the ideas are tied into related groups that will then become my body paragraphs.`;
+        
+        console.log('Prompt created:', prompt);
+        
+        // Send to chat
+        if (window.aiWritingAssistant && window.aiWritingAssistant.chatSystem) {
+            // Scroll chat into view if needed
+            const chatSection = document.querySelector('.chat-section');
+            if (chatSection) {
+                chatSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Send the message
+            console.log('Sending message to chat system...');
+            await window.aiWritingAssistant.chatSystem.sendMessage(prompt);
+            console.log('Message sent successfully');
+        } else {
+            console.error('Chat system not available', {
+                aiWritingAssistant: window.aiWritingAssistant,
+                chatSystem: window.aiWritingAssistant?.chatSystem
+            });
+        }
     }
 
 }
@@ -1034,6 +1909,210 @@ class BaseEditorModule {
                 });
             }, debounceMs);
         });
+        
+        // For WriteModule, also track selection changes for AI tools
+        if (this.moduleName === 'Write') {
+            this.setupSelectionTracking();
+        }
+    }
+    
+    setupSelectionTracking() {
+        if (!this.editor) return;
+        
+        // Wait a bit for DOM to be ready, then setup
+        setTimeout(() => {
+            // Track selection changes to enable/disable AI tool buttons
+            this.editor.on('selection-change', (range) => {
+                this.updateAIToolButtons(range);
+            });
+            
+            // Also track on mouseup and keyup for better responsiveness
+            const editorElement = this.editor.root;
+            editorElement.addEventListener('mouseup', () => {
+                setTimeout(() => {
+                    const range = this.editor.getSelection();
+                    this.updateAIToolButtons(range);
+                }, 10);
+            });
+            
+            editorElement.addEventListener('keyup', () => {
+                setTimeout(() => {
+                    const range = this.editor.getSelection();
+                    this.updateAIToolButtons(range);
+                }, 10);
+            });
+            
+            // Setup button click handlers
+            this.setupAIToolButtons();
+            
+            // Initialize button states
+            const range = this.editor.getSelection();
+            this.updateAIToolButtons(range);
+        }, 100);
+    }
+    
+    updateAIToolButtons(range) {
+        const transitionBtn = document.getElementById('transitionBtn');
+        const rephraseBtn = document.getElementById('rephraseBtn');
+        
+        if (!transitionBtn || !rephraseBtn) return;
+        
+        // Check if there's a valid selection with text
+        if (range && range.length > 0) {
+            const selectedText = this.editor.getText(range.index, range.length).trim();
+            if (selectedText.length > 0) {
+                this.selectedText = selectedText;
+                this.selectedRange = range;
+                
+                // Count sentences in selected text for transition button
+                const sentenceCount = this.countSentences(selectedText);
+                
+                // Update transition button
+                if (sentenceCount >= 2) {
+                    transitionBtn.disabled = false;
+                    transitionBtn.classList.remove('disabled');
+                    transitionBtn.title = `Get transition suggestions for ${sentenceCount} selected sentences`;
+                } else {
+                    transitionBtn.disabled = true;
+                    transitionBtn.classList.add('disabled');
+                    transitionBtn.title = `Select at least 2 sentences (currently ${sentenceCount})`;
+                }
+                
+                // Update rephrase button (works for any text selection)
+                rephraseBtn.disabled = false;
+                rephraseBtn.classList.remove('disabled');
+                const textType = this.detectTextType(selectedText);
+                rephraseBtn.title = `Rephrase ${textType}`;
+                return;
+            }
+        }
+        
+        // No valid selection
+        this.selectedText = '';
+        this.selectedRange = null;
+        transitionBtn.disabled = true;
+        transitionBtn.classList.add('disabled');
+        transitionBtn.title = 'Select at least two sentences to get transition suggestions';
+        rephraseBtn.disabled = true;
+        rephraseBtn.classList.add('disabled');
+        rephraseBtn.title = 'Select a sentence or paragraph to rephrase';
+    }
+    
+    detectTextType(text) {
+        // Detect if text is a sentence, paragraph, or multiple sentences
+        const sentenceCount = this.countSentences(text);
+        const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+        
+        if (sentenceCount === 1) {
+            return 'sentence';
+        } else if (sentenceCount > 1 || wordCount > 20) {
+            return 'paragraph';
+        } else {
+            return 'text';
+        }
+    }
+    
+    countSentences(text) {
+        // Count sentences by looking for sentence-ending punctuation
+        // Handle periods, exclamation marks, and question marks
+        // Exclude common abbreviations like "Mr.", "Dr.", "etc."
+        const cleanedText = text.trim();
+        if (!cleanedText) return 0;
+        
+        // Split by sentence-ending punctuation followed by space, newline, or end of string
+        // This regex looks for . ! or ? followed by whitespace or end of string
+        const sentences = cleanedText.split(/[.!?]+(?:\s+|$)/).filter(s => s.trim().length > 0);
+        
+        // If no clear sentence breaks found, check if text ends with punctuation
+        if (sentences.length === 0 && cleanedText.length > 0) {
+            // If text ends with punctuation, count as one sentence
+            return /[.!?]$/.test(cleanedText) ? 1 : 0;
+        }
+        
+        // If last sentence doesn't end with punctuation but has content, count it
+        const lastChar = cleanedText[cleanedText.length - 1];
+        if (sentences.length > 0 && !/[.!?]/.test(lastChar)) {
+            // Last sentence might not have ending punctuation
+            return sentences.length;
+        }
+        
+        return sentences.length;
+    }
+    
+    setupAIToolButtons() {
+        const transitionBtn = document.getElementById('transitionBtn');
+        const rephraseBtn = document.getElementById('rephraseBtn');
+        
+        if (transitionBtn) {
+            transitionBtn.addEventListener('click', () => this.handleTransitionHelper());
+        }
+        
+        if (rephraseBtn) {
+            rephraseBtn.addEventListener('click', () => this.handleRephrase());
+        }
+    }
+    
+    async handleTransitionHelper() {
+        if (!this.selectedText || this.selectedText.trim().length === 0) {
+            alert('Please select at least two sentences to get transition suggestions.');
+            return;
+        }
+        
+        const sentenceCount = this.countSentences(this.selectedText);
+        if (sentenceCount < 2) {
+            alert(`Please select at least 2 sentences. Currently selected: ${sentenceCount} sentence(s).`);
+            return;
+        }
+        
+        const prompt = `I am a student writing an essay. I have selected two sentences from my writing and need help connecting them smoothly. Please provide some words that I can use to tie these two sentences together to make a smooth transition.
+
+Selected sentences:
+${this.selectedText}
+
+Please provide:
+1. A list of transition words/phrases (e.g., "Furthermore", "In addition", "However", "On the other hand", etc.)
+2. A brief explanation of when each transition would be most appropriate
+3. An example of how to use one of the transitions to connect the sentences`;
+        
+        // Send to chat system
+        if (window.aiWritingAssistant && window.aiWritingAssistant.chatSystem) {
+            const chatSection = document.querySelector('.chat-section');
+            if (chatSection) {
+                chatSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            await window.aiWritingAssistant.chatSystem.sendMessage(prompt);
+        } else {
+            console.error('Chat system not available');
+            alert('Chat system is not available. Please try again later.');
+        }
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    async handleRephrase() {
+        if (!this.selectedText || this.selectedText.trim().length === 0) {
+            alert('Please select a sentence or paragraph to rephrase.');
+            return;
+        }
+        
+        // Format the prompt as specified by the user
+        const prompt = `I am a student writing an essay. Here is a phrase that I have written: ["${this.selectedText}"]. I have used the words in this phrase previously and would like you to provide some options on how I can reword this phrase, while keeping the original meaning.`;
+        
+        // Send to chat system
+        if (window.aiWritingAssistant && window.aiWritingAssistant.chatSystem) {
+            const chatSection = document.querySelector('.chat-section');
+            if (chatSection) {
+                chatSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            await window.aiWritingAssistant.chatSystem.sendMessage(prompt);
+        } else {
+            console.error('Chat system not available');
+            alert('Chat system is not available. Please try again later.');
+        }
     }
 
     setupEventListeners() {
@@ -1061,10 +2140,184 @@ class WriteModule extends BaseEditorModule {
         // Register with project manager for data collection
         this.projectManager.registerModule('write', this);
         this.lastSaveWasManual = false; // Track manual saves for version history
+        this.templateInserted = false; // Track if template has been inserted
+        this.selectedText = ''; // Track currently selected text
+        this.selectedRange = null; // Track selection range
     }
 
     handleTextChange(content) {
         // Text changes are handled locally, state updated only during save
+    }
+
+    /**
+     * Generate template content from outline sections and insert/append into editor
+     * If editor is empty, inserts all sections
+     * If editor has content, appends only missing sections
+     */
+    insertOutlineTemplate() {
+        if (!this.editor) {
+            console.warn('WriteModule: Editor not initialized, cannot insert template');
+            return;
+        }
+
+        // Check if editor already has content
+        // Quill might have empty content like <p><br></p>, <p></p>, or just whitespace
+        const currentContent = this.editor.root.innerHTML.trim();
+        const isEmpty = !currentContent || 
+                       currentContent === '<p><br></p>' || 
+                       currentContent === '<p></p>' || 
+                       currentContent === '<br>' ||
+                       currentContent.replace(/<[^>]*>/g, '').trim() === '';
+
+        // Get outline sections from PlanModule
+        let sections = [];
+        if (window.aiWritingAssistant && window.aiWritingAssistant.modules && window.aiWritingAssistant.modules.plan) {
+            const planModule = window.aiWritingAssistant.modules.plan;
+            if (planModule.sections && planModule.sections.size > 0) {
+                // Get sections in order from outlineItems DOM
+                const outlineItems = document.getElementById('outlineItems');
+                if (outlineItems) {
+                    const sectionOrder = Array.from(outlineItems.children).map(child => {
+                        return child.dataset.sectionId || child.id.replace('section-', '');
+                    }).filter(id => id);
+
+                    // Build sections array in order
+                    sectionOrder.forEach(sectionId => {
+                        const section = planModule.sections.get(sectionId);
+                        if (section && section.title) {
+                            sections.push({
+                                id: section.id,
+                                title: section.title,
+                                description: section.description || ''
+                            });
+                        }
+                    });
+                } else {
+                    // Fallback: get all sections from Map
+                    planModule.sections.forEach((section, id) => {
+                        if (section && section.title) {
+                            sections.push({
+                                id: section.id,
+                                title: section.title,
+                                description: section.description || ''
+                            });
+                        }
+                    });
+                }
+            }
+        }
+
+        // If no sections found, try template data
+        if (sections.length === 0 && window.templateData && window.templateData.sections) {
+            sections = window.templateData.sections;
+        }
+
+        if (sections.length === 0) {
+            console.log('WriteModule: No outline sections found, skipping template insertion');
+            return;
+        }
+
+        // If editor is empty, insert all sections
+        if (isEmpty) {
+            // Generate template HTML with headings
+            const templateHTML = sections.map((section, index) => {
+                // Use h2 for section headings
+                let html = `<h2>${this.escapeHtml(section.title)}</h2>`;
+                // Add description if available
+                if (section.description && section.description.trim()) {
+                    html += `<p><em>${this.escapeHtml(section.description)}</em></p>`;
+                }
+                // Add empty paragraph for user to write content
+                html += `<p><br></p>`;
+                // Add spacing between sections (except last)
+                if (index < sections.length - 1) {
+                    html += `<p><br></p>`;
+                }
+                return html;
+            }).join('');
+
+            // Insert template into editor
+            this.editor.clipboard.dangerouslyPasteHTML(templateHTML);
+            this.templateInserted = true;
+            console.log('WriteModule: Outline template inserted with', sections.length, 'sections');
+        } else {
+            // Editor has content - find and append only missing sections
+            const existingHeadings = this.extractExistingHeadings();
+            const missingSections = sections.filter(section => {
+                // Check if this section's heading already exists in editor
+                const sectionTitle = section.title.trim().toLowerCase();
+                return !existingHeadings.some(existing => 
+                    existing.toLowerCase() === sectionTitle
+                );
+            });
+
+            if (missingSections.length === 0) {
+                console.log('WriteModule: All outline sections already exist in editor');
+                return;
+            }
+
+            // Append missing sections at the end
+            const appendHTML = missingSections.map((section, index) => {
+                // Add spacing before new section
+                let html = `<p><br></p>`;
+                // Use h2 for section headings
+                html += `<h2>${this.escapeHtml(section.title)}</h2>`;
+                // Add description if available
+                if (section.description && section.description.trim()) {
+                    html += `<p><em>${this.escapeHtml(section.description)}</em></p>`;
+                }
+                // Add empty paragraph for user to write content
+                html += `<p><br></p>`;
+                return html;
+            }).join('');
+
+            // Append missing sections at the end
+            // Get the current length and insert at the end
+            const length = this.editor.getLength();
+            // Set selection to the end (before the final newline)
+            this.editor.setSelection(length - 1);
+            // Convert HTML to Delta format and insert
+            const Delta = Quill.import('delta');
+            const delta = this.editor.clipboard.convert({ html: appendHTML });
+            // Create a new delta that retains existing content and appends new content
+            const appendDelta = new Delta()
+                .retain(length - 1)
+                .concat(delta);
+            this.editor.updateContents(appendDelta, 'user');
+            // Move cursor to end of newly appended content
+            const newLength = this.editor.getLength();
+            this.editor.setSelection(newLength - 1);
+            console.log('WriteModule: Appended', missingSections.length, 'missing sections to editor');
+        }
+    }
+
+    /**
+     * Extract existing H2 headings from editor to check which sections already exist
+     */
+    extractExistingHeadings() {
+        if (!this.editor) return [];
+        
+        const headings = [];
+        const editorElement = this.editor.root;
+        const h2Elements = editorElement.querySelectorAll('h2');
+        
+        h2Elements.forEach(h2 => {
+            const text = h2.textContent.trim();
+            if (text) {
+                headings.push(text);
+            }
+        });
+        
+        return headings;
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // Method called by ProjectManager to collect all write data
@@ -1072,8 +2325,6 @@ class WriteModule extends BaseEditorModule {
         const content = this.editor ? this.editor.root.innerHTML : '';
         const wordCount = this.calculateWordCount();
         const changeSummary = this.lastSaveWasManual ? 'Manual save' : 'Auto-saved';
-        
-        console.log('WriteModule.collectData(): content length=' + content.length + ', wordCount=' + wordCount + ', changeSummary=' + changeSummary + ', lastSaveWasManual=' + this.lastSaveWasManual);
         
         // Reset flag AFTER collecting data (not before)
         const wasManual = this.lastSaveWasManual;
@@ -1093,12 +2344,40 @@ class WriteModule extends BaseEditorModule {
 
 // ---- Edit Module ----
 class EditModule extends BaseEditorModule {
-    constructor(globalState, projectManager) {
+    constructor(globalState, projectManager, api) {
         super(globalState, projectManager, 'editEditor', 'Edit');
         
         // Register with project manager for data collection
         this.projectManager.registerModule('edit', this);
+        this.api = api; // Store API reference
         this.lastSaveWasManual = false; // Track manual saves for version history
+        
+        // AI Review state
+        this.reviewSuggestions = [];
+        this.activeHighlights = new Map(); // Map of highlight IDs to suggestion data
+        this.reviewPanel = null;
+        this.reviewStats = null;
+        this.reviewSuggestionsContainer = null;
+        this.isReviewing = false;
+        
+        // Setup AI Review after editor is initialized
+        setTimeout(() => {
+            this.setupAIReview();
+            // Move Quill toolbar to our custom container
+            this.moveToolbarToContainer();
+        }, 500);
+    }
+    
+    moveToolbarToContainer() {
+        if (!this.editor) return;
+        
+        const customToolbar = document.getElementById('editToolbar');
+        const quillToolbar = this.editor.container.querySelector('.ql-toolbar');
+        
+        if (customToolbar && quillToolbar) {
+            // Move the Quill toolbar into our custom container
+            customToolbar.appendChild(quillToolbar);
+        }
     }
 
     handleTextChange(content) {
@@ -1125,6 +2404,756 @@ class EditModule extends BaseEditorModule {
         };
         
         return editData;
+    }
+    
+    setupAIReview() {
+        const reviewBtn = document.getElementById('aiReviewBtn');
+        const reviewPanel = document.getElementById('editReviewPanel');
+        const reviewPanelClose = document.getElementById('reviewPanelClose');
+        const reviewStats = document.getElementById('reviewStats');
+        const reviewSuggestionsContainer = document.getElementById('reviewSuggestions');
+        
+        if (!reviewBtn || !reviewPanel) return;
+        
+        this.reviewPanel = reviewPanel;
+        this.reviewStats = reviewStats;
+        this.reviewSuggestionsContainer = reviewSuggestionsContainer;
+        
+        reviewBtn.addEventListener('click', () => this.handleAIReview());
+        reviewPanelClose?.addEventListener('click', () => this.closeReviewPanel());
+        
+        // Load saved review results after editor is ready
+        setTimeout(() => {
+            this.loadSavedReviewResults();
+        }, 1000);
+    }
+    
+    getReviewStorageKey() {
+        const state = this.globalState.getState();
+        const projectId = state.currentProject?.id || 'default';
+        return `writeassist_ai_review_${projectId}`;
+    }
+    
+    saveReviewResults() {
+        if (!this.reviewSuggestions || this.reviewSuggestions.length === 0) {
+            // Clear storage if no suggestions
+            localStorage.removeItem(this.getReviewStorageKey());
+            return;
+        }
+        
+        const reviewData = {
+            suggestions: this.reviewSuggestions,
+            timestamp: new Date().toISOString()
+        };
+        
+        try {
+            localStorage.setItem(this.getReviewStorageKey(), JSON.stringify(reviewData));
+        } catch (error) {
+            console.error('EditModule: Error saving review results:', error);
+        }
+    }
+    
+    loadSavedReviewResults() {
+        if (!this.editor) return;
+        
+        try {
+            const storageKey = this.getReviewStorageKey();
+            const savedData = localStorage.getItem(storageKey);
+            
+            if (!savedData) return;
+            
+            const reviewData = JSON.parse(savedData);
+            
+            if (!reviewData.suggestions || reviewData.suggestions.length === 0) {
+                return;
+            }
+            
+            // Check if the current editor content matches (basic check)
+            const currentText = this.editor.getText();
+            if (!currentText || currentText.trim().length === 0) {
+                return;
+            }
+            
+            // Restore suggestions
+            this.reviewSuggestions = reviewData.suggestions;
+            
+            // Apply highlights
+            this.applyHighlights();
+            
+            // Display results
+            this.displayReviewResults();
+            
+            // Show panel
+            this.showReviewPanel();
+        } catch (error) {
+            console.error('EditModule: Error loading saved review results:', error);
+        }
+    }
+    
+    async handleAIReview() {
+        if (!this.editor) {
+            console.error('EditModule: Editor not initialized');
+            return;
+        }
+        
+        const text = this.editor.getText();
+        if (!text || text.trim().length === 0) {
+            alert('Please add some content to review.');
+            return;
+        }
+        
+        if (this.isReviewing) {
+            return; // Already reviewing
+        }
+        
+        this.isReviewing = true;
+        const reviewBtn = document.getElementById('aiReviewBtn');
+        if (reviewBtn) {
+            reviewBtn.disabled = true;
+            const originalHTML = reviewBtn.innerHTML;
+            reviewBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M8 2L2 6v8h12V6L8 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6 8h4M6 11h2" stroke-linecap="round"/>
+                </svg>
+                <span>Reviewing...</span>
+            `;
+            reviewBtn.dataset.originalHTML = originalHTML;
+        }
+        
+        try {
+            // Clear previous highlights
+            this.clearHighlights();
+            
+            // Get plain text content for AI review
+            const plainText = this.editor.getText();
+            
+            // Call AI API for review
+            const suggestions = await this.requestAIReview(plainText);
+            
+            if (suggestions && suggestions.length > 0) {
+                // Store all suggestions - ensure we have the full array
+                // Make a deep copy to prevent any modifications
+                this.reviewSuggestions = Array.isArray(suggestions) 
+                    ? JSON.parse(JSON.stringify(suggestions)) 
+                    : [JSON.parse(JSON.stringify(suggestions))];
+                
+                console.log('EditModule: Received suggestions from AI:', this.reviewSuggestions.length);
+                console.log('EditModule: Full suggestions array:', JSON.stringify(this.reviewSuggestions, null, 2));
+                console.log('EditModule: Count by type:', {
+                    spelling: this.reviewSuggestions.filter(s => s.type === 'spelling').length,
+                    grammar: this.reviewSuggestions.filter(s => s.type === 'grammar').length,
+                    run_on_sentence: this.reviewSuggestions.filter(s => s.type === 'run_on_sentence').length
+                });
+                
+                this.applyHighlights();
+                
+                // Verify suggestions array wasn't modified by applyHighlights
+                console.log('EditModule: Suggestions after applyHighlights:', this.reviewSuggestions.length);
+                
+                this.displayReviewResults();
+                this.showReviewPanel();
+                // Save to localStorage
+                this.saveReviewResults();
+            } else {
+                // Show success notification modal instead of alert
+                this.showSuccessNotification('No suggestions found. Your document looks good!');
+                // Clear saved results if no suggestions
+                this.saveReviewResults();
+            }
+        } catch (error) {
+            console.error('EditModule: AI Review error:', error);
+            alert('Error performing AI review. Please try again.');
+        } finally {
+            this.isReviewing = false;
+            if (reviewBtn) {
+                reviewBtn.disabled = false;
+                if (reviewBtn.dataset.originalHTML) {
+                    reviewBtn.innerHTML = reviewBtn.dataset.originalHTML;
+                    delete reviewBtn.dataset.originalHTML;
+                } else {
+                    reviewBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M8 2L2 6v8h12V6L8 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6 8h4M6 11h2" stroke-linecap="round"/>
+                        </svg>
+                        <span>AI Review</span>
+                    `;
+                }
+            }
+        }
+    }
+    
+    async requestAIReview(text) {
+        // Use the existing chat API to get AI review
+        // Focus on three specific checks: spelling, grammar, and run-on sentences
+        // Only flag clear, objective errors - not stylistic preferences
+        const prompt = `Please review the following document and check for ONLY clear, objective errors in three categories:
+1. Spelling errors - Only flag words that are clearly misspelled (e.g., "recieve" instead of "receive")
+2. Grammar mistakes - Only flag clear grammatical errors (e.g., "it's" vs "its" when incorrect, subject-verb disagreement, missing punctuation that creates confusion)
+3. Run-on sentences - Only flag sentences that are genuinely run-on (two independent clauses joined without proper punctuation or conjunction)
+
+IMPORTANT GUIDELINES:
+- Do NOT suggest stylistic changes or preferences
+- Do NOT flag sentences that are long but grammatically correct
+- Do NOT suggest changes to word choice unless it's a clear spelling error
+- Only flag errors that are objectively wrong, not matters of style or preference
+- If the text is well-written with no clear errors, return an empty array []
+
+Return your response as a JSON array where each suggestion has:
+- "type": one of "spelling", "grammar", "run_on_sentence"
+- "original": the exact text that needs improvement (quote it exactly as it appears)
+- "suggestion": the improved version
+- "reason": brief explanation of the objective error
+- "position": approximate position in text (character index or sentence number)
+
+Document to review:
+${text}
+
+Return ONLY a valid JSON array, no other text. If there are no clear errors, return an empty array: []. Example format:
+[
+  {
+    "type": "spelling",
+    "original": "recieve",
+    "suggestion": "receive",
+    "reason": "Incorrect spelling",
+    "position": 45
+  },
+  {
+    "type": "grammar",
+    "original": "The cat sat on it's mat",
+    "suggestion": "The cat sat on its mat",
+    "reason": "Incorrect use of apostrophe - 'it's' means 'it is', should be possessive 'its'",
+    "position": 120
+  },
+  {
+    "type": "run_on_sentence",
+    "original": "I went to the store I bought some milk.",
+    "suggestion": "I went to the store. I bought some milk.",
+    "reason": "Run-on sentence - two independent clauses need proper punctuation",
+    "position": 200
+  }
+]`;
+
+        try {
+            if (!this.api) {
+                throw new Error('API not available');
+            }
+            
+            // Get current project data from global state (required by API)
+            const currentProject = this.globalState.getState();
+            
+            // Use the sendChatMessage method from API
+            const result = await this.api.sendChatMessage(prompt, currentProject);
+            
+            if (!result || !result.assistantReply) {
+                throw new Error('No response from AI');
+            }
+            
+            const aiResponse = result.assistantReply;
+            
+            // Parse JSON from AI response
+            // Try to extract JSON array from the response
+            let jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+            if (!jsonMatch) {
+                // Try to find JSON in code blocks
+                jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
+                           aiResponse.match(/```\s*([\s\S]*?)\s*```/);
+                if (jsonMatch) {
+                    jsonMatch = [jsonMatch[0], jsonMatch[1]];
+                }
+            }
+            
+            if (jsonMatch) {
+                const jsonStr = jsonMatch[1] || jsonMatch[0];
+                const suggestions = JSON.parse(jsonStr);
+                return Array.isArray(suggestions) ? suggestions : [];
+            }
+            
+            // Fallback: try to parse the entire response as JSON
+            try {
+                const suggestions = JSON.parse(aiResponse);
+                return Array.isArray(suggestions) ? suggestions : [];
+            } catch (e) {
+                console.warn('EditModule: Could not parse AI response as JSON:', aiResponse);
+                return [];
+            }
+        } catch (error) {
+            console.error('EditModule: Error requesting AI review:', error);
+            throw error;
+        }
+    }
+    
+    applyHighlights() {
+        if (!this.editor || !this.reviewSuggestions.length) return;
+        
+        // Get the full text content
+        const fullText = this.editor.getText();
+        const delta = this.editor.getContents();
+        
+        // Track used positions to handle duplicate text
+        const usedPositions = new Set();
+        
+        // First, find positions for all suggestions (without using usedPositions for sorting)
+        const suggestionsWithPositions = this.reviewSuggestions.map((suggestion, originalIndex) => {
+            const originalText = suggestion.original.trim();
+            const position = this.findTextPosition(fullText, originalText, null); // Don't use usedPositions for initial find
+            return {
+                suggestion,
+                originalIndex,
+                position,
+                originalText
+            };
+        }).filter(item => item.position !== -1); // Filter out suggestions we can't find
+        
+        // Sort by position (reverse order to maintain indices when applying)
+        suggestionsWithPositions.sort((a, b) => b.position - a.position);
+        
+        // Apply highlights from end to beginning to maintain positions
+        suggestionsWithPositions.forEach((item, sortedIndex) => {
+            const { suggestion, originalIndex, originalText } = item;
+            
+            // Find the next available position (handling duplicates)
+            let position = this.findTextPosition(fullText, originalText, usedPositions);
+            
+            if (position === -1) {
+                console.warn('EditModule: Could not find available position for suggestion:', originalText);
+                return;
+            }
+            
+            // Mark this position as used
+            usedPositions.add(position);
+            
+            // Convert text position to Quill index
+            const quillIndex = this.textPositionToQuillIndex(position, originalText.length);
+            
+            if (quillIndex !== -1) {
+                const highlightId = `review-${originalIndex}`;
+                this.highlightText(quillIndex, originalText.length, highlightId, suggestion);
+            }
+        });
+    }
+    
+    findTextPosition(text, searchText, usedPositions = null) {
+        // Find the position of the text, handling case-insensitive and whitespace variations
+        const normalizedText = text.toLowerCase();
+        const normalizedSearch = searchText.toLowerCase().trim();
+        
+        let position = normalizedText.indexOf(normalizedSearch);
+        
+        // If we need to avoid used positions, find the next available occurrence
+        if (usedPositions && position !== -1) {
+            // Keep searching until we find a position that hasn't been used
+            while (position !== -1 && usedPositions.has(position)) {
+                // Find next occurrence starting after current position
+                position = normalizedText.indexOf(normalizedSearch, position + 1);
+            }
+        }
+        
+        if (position === -1) {
+            // Try with more flexible matching
+            const words = normalizedSearch.split(/\s+/);
+            if (words.length > 1) {
+                // Try to find as phrase
+                position = normalizedText.indexOf(normalizedSearch);
+                
+                // If we need to avoid used positions, find the next available occurrence
+                if (usedPositions && position !== -1) {
+                    while (position !== -1 && usedPositions.has(position)) {
+                        position = normalizedText.indexOf(normalizedSearch, position + 1);
+                    }
+                }
+            }
+        }
+        
+        return position;
+    }
+    
+    textPositionToQuillIndex(textPosition, length) {
+        // Convert plain text position to Quill index
+        // Quill uses a different indexing system (includes formatting)
+        if (!this.editor) return -1;
+        
+        const text = this.editor.getText();
+        if (textPosition < 0 || textPosition >= text.length) {
+            console.warn('EditModule: Invalid text position:', textPosition, 'text length:', text.length);
+            return -1;
+        }
+        
+        // Get the Delta and find the corresponding index
+        const delta = this.editor.getContents();
+        if (!delta || !delta.ops) {
+            console.warn('EditModule: Invalid delta structure');
+            return -1;
+        }
+        
+        let quillIndex = 0;
+        let textIndex = 0;
+        
+        for (let i = 0; i < delta.ops.length; i++) {
+            const op = delta.ops[i];
+            if (typeof op.insert === 'string') {
+                const opLength = op.insert.length;
+                if (textIndex + opLength > textPosition) {
+                    // Found the position within this operation
+                    quillIndex += textPosition - textIndex;
+                    // Validate the result
+                    const editorLength = this.editor.getLength();
+                    if (quillIndex >= editorLength) {
+                        console.warn('EditModule: Calculated Quill index exceeds editor length:', quillIndex, 'editor length:', editorLength);
+                        return -1;
+                    }
+                    return quillIndex;
+                }
+                textIndex += opLength;
+                quillIndex += opLength;
+            } else if (op.insert && typeof op.insert === 'object') {
+                // Formatting characters (images, etc.) - skip in text count but add to quill index
+                quillIndex += 1;
+            }
+        }
+        
+        // If we reach here, position is at or beyond the end
+        const editorLength = this.editor.getLength();
+        if (quillIndex >= editorLength) {
+            console.warn('EditModule: Calculated Quill index exceeds editor length:', quillIndex, 'editor length:', editorLength);
+            return -1;
+        }
+        
+        return quillIndex;
+    }
+    
+    highlightText(index, length, highlightId, suggestion) {
+        if (!this.editor) return;
+        
+        try {
+            // Validate indices
+            const editorLength = this.editor.getLength();
+            if (index < 0 || index >= editorLength) {
+                console.warn('EditModule: Invalid index for highlight:', index, 'editor length:', editorLength);
+                return;
+            }
+            
+            // Ensure length doesn't exceed editor bounds
+            // Quill's getLength() includes the trailing newline, so we need to account for that
+            const maxLength = editorLength - index - 1; // -1 for the trailing newline
+            const actualLength = Math.max(1, Math.min(length, maxLength));
+            if (actualLength <= 0 || index + actualLength > editorLength) {
+                console.warn('EditModule: Invalid length for highlight:', length, 'at index:', index, 'max length:', maxLength, 'editor length:', editorLength);
+                return;
+            }
+            
+            // Apply highlight format using Quill's API correctly
+            // Use 'silent' source to avoid triggering text-change events
+            // Ensure we're not trying to format the trailing newline
+            const formatLength = Math.min(actualLength, editorLength - index - 1);
+            if (formatLength <= 0) {
+                console.warn('EditModule: Format length is invalid:', formatLength, 'index:', index, 'editor length:', editorLength);
+                return;
+            }
+            
+            try {
+                // IMPORTANT: Only apply formatting (colors), NEVER modify text content
+                // formatText with only 'background' and 'color' properties does NOT change text
+                // This is read-only highlighting - the text content remains unchanged
+                this.editor.formatText(index, formatLength, {
+                    'background': this.getHighlightColor(suggestion.type),
+                    'color': '#000'
+                }, 'silent');
+            } catch (formatError) {
+                console.error('EditModule: Error in formatText:', formatError, 'index:', index, 'length:', formatLength);
+                return;
+            }
+            
+            // Store highlight data
+            this.activeHighlights.set(highlightId, {
+                index,
+                length: formatLength,
+                suggestion,
+                highlightId
+            });
+            
+            // Add click handler to the highlighted text
+            this.setupHighlightClick(index, formatLength, highlightId, suggestion);
+        } catch (error) {
+            console.error('EditModule: Error highlighting text:', error);
+            console.error('EditModule: Index:', index, 'Length:', length, 'Editor length:', this.editor?.getLength());
+        }
+    }
+    
+    getHighlightColor(type) {
+        const colors = {
+            'spelling': '#ffeb3b',      // Yellow for spelling
+            'grammar': '#ff9800',       // Orange for grammar
+            'run_on_sentence': '#f44336' // Red for run-on sentences
+        };
+        return colors[type] || '#ffeb3b';
+    }
+    
+    setupHighlightClick(index, length, highlightId, suggestion) {
+        // We'll handle clicks on the editor and check if they're on highlighted text
+        // This is set up once in setupEventListeners
+    }
+    
+    clearHighlights() {
+        if (!this.editor) return;
+        
+        // Remove all highlights - ONLY remove formatting, NEVER modify text content
+        // Setting background and color to empty strings removes formatting but keeps text unchanged
+        this.activeHighlights.forEach((data, highlightId) => {
+            try {
+                this.editor.formatText(data.index, data.length, {
+                    'background': '',
+                    'color': ''
+                }, 'user');
+            } catch (error) {
+                // Ignore errors for already removed highlights
+            }
+        });
+        
+        this.activeHighlights.clear();
+        
+        // Clear saved results when highlights are cleared
+        this.reviewSuggestions = [];
+        this.saveReviewResults();
+    }
+    
+    displayReviewResults() {
+        if (!this.reviewStats || !this.reviewSuggestionsContainer) return;
+        
+        // Ensure we have an array
+        if (!Array.isArray(this.reviewSuggestions)) {
+            console.error('EditModule: reviewSuggestions is not an array:', this.reviewSuggestions);
+            this.reviewSuggestions = [];
+            return;
+        }
+        
+        console.log('EditModule: Displaying review results, total suggestions:', this.reviewSuggestions.length);
+        
+        // Count suggestions by type
+        const counts = {
+            spelling: 0,
+            grammar: 0,
+            run_on_sentence: 0
+        };
+        
+        this.reviewSuggestions.forEach(s => {
+            if (s && s.type && counts.hasOwnProperty(s.type)) {
+                counts[s.type]++;
+            }
+        });
+        
+        // Display stats
+        this.reviewStats.innerHTML = `
+            <div class="review-stat-item">
+                <span class="stat-label">Total Issues:</span>
+                <span class="stat-value">${this.reviewSuggestions.length}</span>
+            </div>
+            ${Object.entries(counts).filter(([_, count]) => count > 0).map(([type, count]) => `
+                <div class="review-stat-item">
+                    <span class="stat-label">${this.formatTypeName(type)}:</span>
+                    <span class="stat-value">${count}</span>
+                </div>
+            `).join('')}
+        `;
+        
+        // Display ALL suggestions list - no filtering
+        // Log all suggestions before rendering
+        console.log('EditModule: All suggestions to display:', this.reviewSuggestions);
+        console.log('EditModule: Count by type:', {
+            spelling: this.reviewSuggestions.filter(s => s.type === 'spelling').length,
+            grammar: this.reviewSuggestions.filter(s => s.type === 'grammar').length,
+            run_on_sentence: this.reviewSuggestions.filter(s => s.type === 'run_on_sentence').length
+        });
+        
+        const suggestionHTMLs = this.reviewSuggestions.map((suggestion, index) => {
+            if (!suggestion || !suggestion.original) {
+                console.warn('EditModule: Invalid suggestion at index', index, suggestion);
+                return '';
+            }
+            const highlightId = `review-${index}`;
+            console.log(`EditModule: Rendering suggestion ${index}:`, {
+                type: suggestion.type,
+                original: suggestion.original.substring(0, 50) + '...',
+                highlightId
+            });
+            return `
+                <div class="review-suggestion-item" data-highlight-id="${highlightId}" data-suggestion-index="${index}">
+                    <div class="suggestion-header">
+                        <span class="suggestion-type ${suggestion.type}">${this.formatTypeName(suggestion.type)}</span>
+                    </div>
+                    <div class="suggestion-content">
+                        <div class="suggestion-original">
+                            <strong>Original:</strong> "${suggestion.original}"
+                        </div>
+                        <div class="suggestion-improved">
+                            <strong>Suggested:</strong> "${suggestion.suggestion || suggestion.suggested || 'N/A'}"
+                        </div>
+                        <div class="suggestion-reason">
+                            ${suggestion.reason || 'No reason provided'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).filter(html => html !== '');
+        
+        console.log('EditModule: Generated', suggestionHTMLs.length, 'HTML items');
+        this.reviewSuggestionsContainer.innerHTML = suggestionHTMLs.join('');
+        
+        // Verify what was actually rendered
+        const renderedItems = this.reviewSuggestionsContainer.querySelectorAll('.review-suggestion-item');
+        console.log('EditModule: Actually rendered', renderedItems.length, 'suggestion items in DOM');
+        
+        // Log each rendered item
+        renderedItems.forEach((item, idx) => {
+            const type = item.querySelector('.suggestion-type')?.textContent;
+            const original = item.querySelector('.suggestion-original')?.textContent?.substring(0, 50);
+            console.log(`EditModule: Rendered item ${idx}:`, { type, original: original + '...' });
+        });
+        
+        // Add click handler to scroll to highlight
+        this.reviewSuggestionsContainer.querySelectorAll('.review-suggestion-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const highlightId = item.dataset.highlightId;
+                this.scrollToHighlight(highlightId);
+            });
+        });
+    }
+    
+    formatTypeName(type) {
+        const names = {
+            'spelling': 'Spelling',
+            'grammar': 'Grammar',
+            'run_on_sentence': 'Run-on Sentence'
+        };
+        return names[type] || type;
+    }
+    
+    
+    showSuccessNotification(message) {
+        const modal = document.getElementById('successNotificationModal');
+        const messageEl = document.getElementById('successNotificationMessage');
+        const closeBtn = document.getElementById('successNotificationClose');
+        
+        if (!modal || !messageEl) return;
+        
+        // Set message
+        messageEl.textContent = message || 'Your document looks good!';
+        
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Close handlers
+        const closeModal = () => {
+            modal.style.display = 'none';
+        };
+        
+        if (closeBtn) {
+            closeBtn.onclick = closeModal;
+        }
+        
+        // Close on background click
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        };
+        
+        // Close on Escape key
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+    }
+    
+    scrollToHighlight(highlightId) {
+        const highlightData = this.activeHighlights.get(highlightId);
+        if (!highlightData) return;
+        
+        // Set selection to highlight
+        this.editor.setSelection(highlightData.index, highlightData.length);
+        
+        // Scroll into view
+        const editorElement = this.editor.root;
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.getBoundingClientRect();
+            editorElement.scrollTop = range.getBoundingClientRect().top - editorElement.getBoundingClientRect().top + editorElement.scrollTop - 100;
+        }
+    }
+    
+    showReviewPanel() {
+        if (this.reviewPanel) {
+            this.reviewPanel.style.display = 'block';
+        }
+    }
+    
+    closeReviewPanel() {
+        if (this.reviewPanel) {
+            this.reviewPanel.style.display = 'none';
+        }
+        this.clearHighlights();
+        this.reviewSuggestions = [];
+        this.activeHighlights.clear();
+    }
+    
+    setupEventListeners() {
+        super.setupEventListeners();
+        
+        // Add click handler for highlighted text
+        if (this.editor) {
+            this.editor.root.addEventListener('click', (e) => {
+                // Check if click is on highlighted text
+                const selection = this.editor.getSelection();
+                if (selection) {
+                    // Check if any highlight overlaps with selection
+                    this.activeHighlights.forEach((data, highlightId) => {
+                        if (selection.index >= data.index && selection.index < data.index + data.length) {
+                            // Show suggestion popup or scroll to it
+                            const index = parseInt(highlightId.replace('review-', ''));
+                            this.showSuggestionPopup(index, data.suggestion);
+                        }
+                    });
+                }
+            });
+        }
+    }
+    
+    showSuggestionPopup(index, suggestion) {
+        // Create or update popup to show suggestion
+        let popup = document.getElementById('suggestionPopup');
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.id = 'suggestionPopup';
+            popup.className = 'suggestion-popup';
+            document.body.appendChild(popup);
+        }
+        
+        popup.innerHTML = `
+            <div class="popup-header">
+                <span class="popup-type ${suggestion.type}">${this.formatTypeName(suggestion.type)}</span>
+                <button class="popup-close" onclick="this.closest('.suggestion-popup').remove()">×</button>
+            </div>
+            <div class="popup-content">
+                <div><strong>Original:</strong> "${suggestion.original}"</div>
+                <div><strong>Suggested:</strong> "${suggestion.suggestion}"</div>
+                <div>${suggestion.reason || ''}</div>
+            </div>
+        `;
+        
+        // Position popup near cursor
+        const selection = this.editor.getSelection();
+        if (selection) {
+            const bounds = this.editor.getBounds(selection.index);
+            if (bounds) {
+                popup.style.top = `${bounds.top + bounds.height + 10}px`;
+                popup.style.left = `${bounds.left}px`;
+            }
+        }
     }
 }
 
@@ -1173,6 +3202,9 @@ class AIWritingAssistant {
             
             // Setup global event listeners
             this.setupGlobalEvents();
+            
+            // Setup chat resizer
+            this.setupChatResizer();
 
             // Setup autosave status indicator
             this.setupSaveStatusIndicator();
@@ -1192,7 +3224,9 @@ class AIWritingAssistant {
     initializeModules() {
         this.modules.plan = new PlanModule(this.globalState, this.projectManager, this.api);
         this.modules.write = new WriteModule(this.globalState, this.projectManager);
-        this.modules.edit = new EditModule(this.globalState, this.projectManager);
+        this.modules.edit = new EditModule(this.globalState, this.projectManager, this.api);
+        // Make editModule globally accessible for popup handlers
+        window.editModule = this.modules.edit;
         
         // Register chat manager for data collection
         this.projectManager.registerModule('chat', this.chatSystem);
@@ -1206,22 +3240,28 @@ class AIWritingAssistant {
 
     setupChatManagerConnection() {
         // Subscribe to state changes to update chat UI
+        // NOTE: We're more careful here to avoid overwriting fresh database data
         this.globalState.subscribe('stateChanged', (state) => {
             if (state.chatHistory && Array.isArray(state.chatHistory)) {
-                // Only update if the chat history has actually changed
+                // Only update if the chat history has actually changed AND we're not loading from DB
                 const currentMessages = this.chatSystem.getMessages();
-                if (currentMessages.length !== state.chatHistory.length) {
-                    this.chatSystem.loadMessages(state.chatHistory);
+                // Only reload if state has MORE messages (new messages added) and we're not loading from DB
+                if (state.chatHistory.length > currentMessages.length && 
+                    !this.chatSystem.isLoadingHistory && 
+                    !this.chatSystem.isLoadingFromDatabase) {
+                    // Use syncWithGlobalState instead of loadMessages to add only new messages
+                    this.chatSystem.syncWithGlobalState(state.chatHistory);
                 }
             }
         });
         
-        // Also listen for the ready event to load initial chat history
-        this.globalState.subscribe('ready', (state) => {
-            if (state.chatHistory && Array.isArray(state.chatHistory)) {
-                this.chatSystem.loadMessages(state.chatHistory);
-            }
-        });
+        // Don't load from state on ready - let loadChatHistory() handle it from database
+        // This prevents old cached state from overwriting fresh database data
+        // this.globalState.subscribe('ready', (state) => {
+        //     if (state.chatHistory && Array.isArray(state.chatHistory)) {
+        //         this.chatSystem.loadMessages(state.chatHistory);
+        //     }
+        // });
     }
 
     setupActionButtons() {
@@ -1328,6 +3368,83 @@ class AIWritingAssistant {
         });
     }
 
+    setupChatResizer() {
+        const resizer = document.getElementById('chatResizer');
+        const chatSection = document.querySelector('.chat-section');
+        
+        if (!resizer || !chatSection) {
+            console.warn('Chat resizer elements not found');
+            return;
+        }
+        
+        // Load saved width from localStorage
+        const savedWidth = localStorage.getItem('writeassistdev_chat_width');
+        if (savedWidth) {
+            const width = parseInt(savedWidth, 10);
+            if (width >= 250 && width <= 600) {
+                document.documentElement.style.setProperty('--chat-width', `${width}px`);
+            }
+        }
+        
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+        
+        const startResize = (e) => {
+            isResizing = true;
+            startX = e.clientX || e.touches?.[0]?.clientX;
+            startWidth = chatSection.offsetWidth;
+            
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            resizer.style.background = 'var(--accent-primary)';
+            
+            e.preventDefault();
+        };
+        
+        const resize = (e) => {
+            if (!isResizing) return;
+            
+            const currentX = e.clientX || e.touches?.[0]?.clientX;
+            const diff = currentX - startX;
+            const newWidth = startWidth + diff;
+            
+            // Constrain width between min and max
+            const minWidth = 250;
+            const maxWidth = 600;
+            const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+            
+            document.documentElement.style.setProperty('--chat-width', `${constrainedWidth}px`);
+            
+            e.preventDefault();
+        };
+        
+        const stopResize = () => {
+            if (!isResizing) return;
+            
+            isResizing = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            resizer.style.background = '';
+            
+            // Save width to localStorage
+            const currentWidth = chatSection.offsetWidth;
+            localStorage.setItem('writeassistdev_chat_width', currentWidth.toString());
+        };
+        
+        // Mouse events
+        resizer.addEventListener('mousedown', startResize);
+        document.addEventListener('mousemove', resize);
+        document.addEventListener('mouseup', stopResize);
+        
+        // Touch events for mobile
+        resizer.addEventListener('touchstart', startResize);
+        document.addEventListener('touchmove', resize);
+        document.addEventListener('touchend', stopResize);
+        
+        console.log('Chat resizer initialized');
+    }
+
     setupSaveStatusIndicator() {
         // Create status element
         const el = document.createElement('div');
@@ -1394,156 +3511,23 @@ class AIWritingAssistant {
             }
         }
         
-        // Restore goal - use multiple strategies to ensure it works
-        // Only restore if input is empty (preserve user input if they've typed)
-        const restoreGoal = () => {
-            const goalInput = document.getElementById('assignmentGoal');
-            if (goalInput) {
-                console.log('=== restoreGoal() called ===');
-                console.log('Found goal input element');
-                console.log('Element is visible:', goalInput.offsetParent !== null);
-                console.log('Element display:', window.getComputedStyle(goalInput).display);
-                console.log('Element in DOM:', document.body.contains(goalInput));
-                console.log('Current input value BEFORE:', goalInput.value);
-                console.log('Goal to restore:', goalToRestore);
-                console.log('Goal length:', goalToRestore ? goalToRestore.length : 0);
-                
-                // Check if user has typed something (preserve user input)
-                const currentValue = goalInput.value.trim();
-                if (currentValue) {
-                    console.log('⚠️ Goal input has current value, preserving user input:', currentValue);
-                    console.log('Not restoring from state to avoid overwriting user input');
-                    return true;
-                }
-                
-                // CRITICAL: For textarea, the value must be set using .value property
-                // AND we must ensure the element is actually in the DOM
-                // Only restore if input is empty
-                if (goalToRestore && goalToRestore.length > 0) {
-                    // Direct assignment - the only reliable method
-                    goalInput.value = goalToRestore;
-                    
-                    console.log('Input value AFTER assignment:', goalInput.value);
-                    console.log('Input value length:', goalInput.value.length);
-                    
-                    // If value didn't stick, force it with a MutationObserver approach
-                    if (goalInput.value !== goalToRestore) {
-                        console.error('⚠️ Value assignment failed! Expected:', goalToRestore, 'Got:', goalInput.value);
-                        
-                        // Try alternative: create a new textarea and replace
-                        const newInput = goalInput.cloneNode(false);
-                        newInput.value = goalToRestore;
-                        goalInput.parentNode.replaceChild(newInput, goalInput);
-                        newInput.id = 'assignmentGoal';
-                        newInput.className = goalInput.className;
-                        
-                        console.log('Replaced element, new value:', newInput.value);
-                    }
-                } else {
-                    console.warn('Goal to restore is empty, skipping');
-                }
-                
-                // Verify it was set immediately
-                const finalValue = document.getElementById('assignmentGoal')?.value || '';
-                console.log('FINAL Input value after restore:', finalValue);
-                console.log('FINAL Input value length:', finalValue.length);
-                console.log('Placeholder visible?', !finalValue && document.getElementById('assignmentGoal')?.hasAttribute('placeholder'));
-                
-                // Watch for any changes that clear it
-                let watchCount = 0;
-                const watcher = setInterval(() => {
-                    watchCount++;
-                    if (goalInput.value !== goalToRestore && goalToRestore) {
-                        console.error('🚨 GOAL VALUE WAS CLEARED! Attempt #' + watchCount);
-                        console.error('Expected:', goalToRestore);
-                        console.error('Actual:', goalInput.value);
-                        console.trace('Stack trace:');
-                        // Re-set it
-                        goalInput.value = goalToRestore;
-                    }
-                    // Stop watching after 5 seconds
-                    if (watchCount >= 50) {
-                        clearInterval(watcher);
-                        console.log('Stopped watching goal input');
-                    }
-                }, 100);
-                
-                // Double-check after delays
-                setTimeout(() => {
-                    if (goalInput.value !== goalToRestore && goalToRestore) {
-                        console.warn('⚠️ Goal value was cleared after 50ms! Re-setting...');
-                        goalInput.value = goalToRestore;
-                    } else {
-                        console.log('✅ Goal value confirmed after 50ms:', goalInput.value);
-                    }
-                }, 50);
-                
-                setTimeout(() => {
-                    if (goalInput.value !== goalToRestore && goalToRestore) {
-                        console.warn('⚠️ Goal value was cleared after 200ms! Re-setting...');
-                        goalInput.value = goalToRestore;
-                    } else {
-                        console.log('✅ Goal value confirmed after 200ms:', goalInput.value);
-                    }
-                }, 200);
-                
-                setTimeout(() => {
-                    if (goalInput.value !== goalToRestore && goalToRestore) {
-                        console.warn('⚠️ Goal value was cleared after 1000ms! Re-setting...');
-                        goalInput.value = goalToRestore;
-                    } else {
-                        console.log('✅ Goal value confirmed after 1000ms:', goalInput.value);
-                        console.log('Final check - Input visible:', goalInput.offsetParent !== null);
-                        console.log('Final check - Display style:', window.getComputedStyle(goalInput).display);
-                    }
-                }, 1000);
-                
-                return true;
-            } else {
-                console.warn('Goal input element not found, will retry');
-                return false;
-            }
-        };
+        // Goals are now read-only and come from backend (instructor-set)
+        // No need to restore goals from state - they are set by instructor in mod_form.php
+        // and displayed via updateGoalForTab() which uses window.instructorGoals
+        console.log('Goal restoration skipped - goals are instructor-set and come from backend');
         
-        // Use requestAnimationFrame to ensure DOM is ready
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                // Try immediately after double RAF (ensures DOM is fully ready)
-                if (!restoreGoal()) {
-                    // Try after tab switch completes
-                    setTimeout(() => {
-                        if (!restoreGoal()) {
-                            // Retry after longer delay
-                            setTimeout(() => {
-                                if (!restoreGoal()) {
-                                    // Final retry with even longer delay
-                                    setTimeout(() => {
-                                        const restored = restoreGoal();
-                                        if (!restored) {
-                                            console.error('❌ FAILED to restore goal after all attempts!');
-                                            console.error('Element exists:', !!document.getElementById('assignmentGoal'));
-                                            console.error('Tab active:', document.getElementById('plan')?.classList.contains('active'));
-                                        }
-                                        console.log('Final restore attempt result:', restored);
-                                        console.log('=== restoreUIFromState END ===');
-                                    }, 500);
-                                } else {
-                                    console.log('=== restoreUIFromState END (retry 3) ===');
-                                }
-                            }, 300);
-                        } else {
-                            console.log('=== restoreUIFromState END (retry 2) ===');
-                        }
-                    }, 200);
-                } else {
-                    console.log('=== restoreUIFromState END (success) ===');
-                }
-            });
-        });
-        
-        // Restore chat messages
+        // Restore chat messages - but only if not already loaded from database
+        // This prevents old cached state from overwriting fresh database data
         if (state.chatHistory && Array.isArray(state.chatHistory)) {
-            this.chatSystem.loadMessages(state.chatHistory);
+            // Only restore from state if we haven't loaded from database yet
+            // Once database is loaded, it's the source of truth
+            if (!this.chatSystem.chatHistoryLoaded && 
+                !this.chatSystem.isLoadingHistory && 
+                !this.chatSystem.isLoadingFromDatabase) {
+                this.chatSystem.loadMessages(state.chatHistory);
+            } else {
+                console.log('Skipping chat history restore from state - database is source of truth');
+            }
         }
     }
 

@@ -220,8 +220,20 @@ class ChatSessionManager {
         global $DB;
         
         try {
+            // Handle timestamp - accept ISO string or integer (for backward compatibility)
             if ($timestamp === null) {
-                $timestamp = time();
+                $timestamp = date('Y-m-d H:i:s');
+            } else if (is_numeric($timestamp)) {
+                // Unix timestamp (integer) - convert to TIMESTAMP format
+                $timestamp = date('Y-m-d H:i:s', (int)$timestamp);
+            } else if (is_string($timestamp)) {
+                // ISO string - convert to TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
+                // Handle both full ISO strings and TIMESTAMP format
+                if (strpos($timestamp, 'T') !== false) {
+                    // ISO format: 2024-01-01T12:34:56.789Z -> 2024-01-01 12:34:56
+                    $timestamp = date('Y-m-d H:i:s', strtotime($timestamp));
+                }
+                // Otherwise assume it's already in TIMESTAMP format
             }
             
             // Truncate content if too long (safety measure)
@@ -241,7 +253,7 @@ class ChatSessionManager {
                 'chat_session_id' => $sessionId,
                 'role' => $role,
                 'content' => $content,
-                'timestamp' => $timestamp,
+                'timestamp' => $timestamp, // TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
                 'created_at' => time()
             ];
             

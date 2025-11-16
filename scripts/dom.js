@@ -40,7 +40,15 @@ class DOMManager {
 
     // Get DOM element by ID, with caching to avoid repeated queries
     getElement(id, selector = null) {
-        return this.elements[id] ||= selector ? document.querySelector(selector) : document.getElementById(id);
+        // Don't cache null/undefined values - retry each time if element wasn't found
+        if (!this.elements[id]) {
+            const element = selector ? document.querySelector(selector) : document.getElementById(id);
+            if (element) {
+                this.elements[id] = element;
+            }
+            return element;
+        }
+        return this.elements[id];
     }
 
     // Clear the element cache (useful for dynamic content)
@@ -184,6 +192,8 @@ class SectionComponent {
         this.id = sectionData.id;
         this.title = sectionData.title;
         this.description = sectionData.description;
+        this.required = sectionData.required || false;
+        this.isCustom = sectionData.isCustom || false; // Track if this is a user-created section
         this.element = this.createSection();
     }
 
@@ -192,11 +202,59 @@ class SectionComponent {
         sectionDiv.dataset.sectionId = this.id;
         
         const sectionHeader = createElement('div', 'section-header');
+        
+        // Title with edit capability
         const sectionTitle = createElement('h4', 'section-title', this.title);
         sectionTitle.contentEditable = true;
         sectionTitle.dataset.sectionId = this.id;
+        sectionTitle.setAttribute('spellcheck', 'false');
+        
+        // Add event listeners for saving title changes
+        let titleDebounceTimer = null;
+        sectionTitle.addEventListener('input', () => {
+            // Clear any pending save
+            if (titleDebounceTimer) {
+                clearTimeout(titleDebounceTimer);
+            }
+        });
+        
+        sectionTitle.addEventListener('blur', () => {
+            const newTitle = sectionTitle.textContent.trim();
+            if (newTitle && newTitle !== this.title) {
+                this.title = newTitle;
+                // Trigger save via custom event
+                const event = new CustomEvent('sectionTitleChanged', {
+                    detail: { sectionId: this.id, newTitle: newTitle },
+                    bubbles: true
+                });
+                sectionTitle.dispatchEvent(event);
+            } else if (!newTitle) {
+                // Restore original if empty
+                sectionTitle.textContent = this.title;
+            }
+        });
         
         sectionHeader.appendChild(sectionTitle);
+        
+        // Add delete button for ALL sections (users can remove any section they don't want)
+        const deleteBtn = createElement('button', 'section-delete-btn');
+        deleteBtn.innerHTML = '×';
+        deleteBtn.title = this.isCustom ? 'Delete this section' : 'Remove this section from outline';
+        deleteBtn.setAttribute('aria-label', 'Delete section');
+        deleteBtn.dataset.sectionId = this.id;
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            // Dispatch custom event for section deletion/removal
+            const event = new CustomEvent('sectionDeleted', {
+                detail: { sectionId: this.id, isCustom: this.isCustom },
+                bubbles: true,
+                composed: true
+            });
+            this.element.dispatchEvent(event);
+        });
+        sectionHeader.appendChild(deleteBtn);
+        
         sectionDiv.appendChild(sectionHeader);
         
         // Add section description if it exists
@@ -285,7 +343,40 @@ class TabManager {
     }
 
     init() {
+        // Ensure goal element is always a read-only div (not a textarea)
+        // This prevents any cached JavaScript from creating a textarea
+        this.ensureGoalIsReadOnly();
+        
         this.setupTabs();
+        // Note: setupTabs() calls switchTab('plan') which already calls updateGoalForTab()
+        // So no need to call it again here
+    }
+    
+    ensureGoalIsReadOnly() {
+        const goalElement = document.getElementById('assignmentGoal');
+        if (goalElement && goalElement.tagName !== 'DIV') {
+            // Replace textarea with div if it exists
+            const div = document.createElement('div');
+            div.id = 'assignmentGoal';
+            div.className = 'goal-field goal-field-readonly';
+            
+            // Get goal text from instructor goals or current element value
+            const currentTab = this.currentTab || 'plan';
+            const instructorGoals = window.instructorGoals || {};
+            const goalText = instructorGoals[currentTab] || goalElement.value || '';
+            
+            if (goalText) {
+                div.textContent = goalText;
+            } else {
+                div.innerHTML = '<em>No goal set for this phase.</em>';
+            }
+            
+            const parentNode = goalElement.parentNode;
+            if (parentNode) {
+                parentNode.replaceChild(div, goalElement);
+                console.log('TabManager: Replaced textarea with read-only div for goal element');
+            }
+        }
     }
 
     setupTabs() {
@@ -306,7 +397,7 @@ class TabManager {
             });
         });
         
-        // Set initial active tab
+        // Set initial active tab (this will also call updateGoalForTab via switchTab)
         this.switchTab('plan');
         console.log('=== Tab setup complete ===');
     }
@@ -348,43 +439,76 @@ class TabManager {
         document.body.classList.add(`activity-${tabId}`);
         console.log('Updated body class to:', document.body.className);
         
-        // If switching to write tab, populate outline sidebar
+        // If switching to write tab, populate outline sidebar and update AI tool buttons
         if (tabId === 'write') {
             this.populateWriteOutline();
+            // Update AI tool button states when switching to Write tab
+            setTimeout(() => {
+                if (window.aiWritingAssistant && window.aiWritingAssistant.modules && window.aiWritingAssistant.modules.write) {
+                    const writeModule = window.aiWritingAssistant.modules.write;
+                    if (writeModule.editor) {
+                        const range = writeModule.editor.getSelection();
+                        writeModule.updateAIToolButtons(range);
+                    }
+                }
+            }, 100);
         }
         
-        // If switching to plan tab, restore goal from global state
-        if (tabId === 'plan') {
-            this.restoreGoalFromState();
-        }
+        // Update goal display for the active tab
+        this.updateGoalForTab(tabId);
 
         this.currentTab = tabId;
         console.log('=== Tab switch complete ===');
     }
     
-    restoreGoalFromState() {
-        const goalInput = document.getElementById('assignmentGoal');
-        if (!goalInput) return;
+    updateGoalForTab(tabId) {
+        // Get instructor goals from window (set by PHP)
+        const instructorGoals = window.instructorGoals || {};
         
-        // Only restore from state if the input is empty (user hasn't typed anything)
-        // This prevents overwriting unsaved user input when switching tabs
-        const currentValue = goalInput.value.trim();
+        console.log('TabManager.updateGoalForTab():', {
+            tabId,
+            instructorGoals,
+            hasGoals: !!instructorGoals[tabId]
+        });
         
-        if (currentValue) {
-            // User has typed something - preserve it, don't restore from state
-            console.log('TabManager: Goal input has current value, preserving:', currentValue);
+        // Get goal element
+        const goalElement = document.getElementById('assignmentGoal');
+        if (!goalElement) {
+            console.warn('TabManager.updateGoalForTab(): Goal element not found');
             return;
         }
         
-        // Only restore from state if input is empty
-        const state = this.globalState.getState();
-        if (state && state.metadata && state.metadata.goal) {
-            if (goalInput.value !== state.metadata.goal) {
-                console.log('TabManager: Restoring goal from state (input was empty):', state.metadata.goal);
-                goalInput.value = state.metadata.goal;
-                console.log('TabManager: Goal restored, current value:', goalInput.value);
+        // Get goal for current tab
+        const goalText = instructorGoals[tabId] || '';
+        
+        // Always use read-only display - goal comes from backend set by instructor
+        if (goalElement.tagName === 'DIV') {
+            if (goalText) {
+                goalElement.textContent = goalText;
+            } else {
+                goalElement.innerHTML = '<em>No goal set for this phase.</em>';
+            }
+        } else {
+            // Replace textarea with div if it exists
+            const div = document.createElement('div');
+            div.id = 'assignmentGoal';
+            div.className = 'goal-field goal-field-readonly';
+            if (goalText) {
+                div.textContent = goalText;
+            } else {
+                div.innerHTML = '<em>No goal set for this phase.</em>';
+            }
+            
+            const parentNode = goalElement.parentNode;
+            if (parentNode) {
+                parentNode.replaceChild(div, goalElement);
             }
         }
+    }
+    
+    restoreGoalFromState() {
+        // No longer needed - goals are instructor-set per tab
+        // This method is kept for compatibility but does nothing
     }
     
     populateWriteOutline() {
@@ -419,6 +543,23 @@ class TabManager {
         // Clear existing outline
         outlineSidebar.innerHTML = '<h3>My Outline</h3>';
         
+        // Get available sections to check if we should show the insert template button
+        let sections = this.getOutlineSections(state);
+        
+        // Add button to insert outline template into editor (only if sections exist)
+        if (sections && sections.length > 0) {
+            const insertTemplateBtn = document.createElement('button');
+            insertTemplateBtn.className = 'insert-template-btn';
+            insertTemplateBtn.textContent = 'Insert Outline Template';
+            insertTemplateBtn.title = 'Insert outline section headings into the editor';
+            insertTemplateBtn.addEventListener('click', () => {
+                if (window.aiWritingAssistant && window.aiWritingAssistant.modules && window.aiWritingAssistant.modules.write) {
+                    window.aiWritingAssistant.modules.write.insertOutlineTemplate();
+                }
+            });
+            outlineSidebar.appendChild(insertTemplateBtn);
+        }
+        
         // Filter bubbles that are in outline
         const outlineBubbles = ideasArray.filter(bubble => 
             bubble.location === 'outline' && bubble.sectionId
@@ -439,8 +580,10 @@ class TabManager {
         // Group bubbles by section
         const sectionsMap = new Map();
         
-        // Get available sections from template or create default sections
-        const sections = this.getOutlineSections(state);
+        // Use sections we already got above (or get them if not available)
+        if (!sections || sections.length === 0) {
+            sections = this.getOutlineSections(state);
+        }
         
         sections.forEach(section => {
             sectionsMap.set(section.id, {

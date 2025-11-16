@@ -94,10 +94,12 @@ class ProjectAPI {
     async loadChatHistoryPage(limit = 50, beforeTimestamp = null, timeoutMs = 0) {
         try {
             const formData = new URLSearchParams();
-            formData.append('action', 'load_chat_history_only'); // backend fallback
+            formData.append('action', 'load_chat_history_only');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
-            formData.append('limit', String(limit));
+            if (limit !== null && limit > 0) {
+                formData.append('limit', String(limit));
+            }
             if (beforeTimestamp !== null) {
                 formData.append('before', String(beforeTimestamp));
             }
@@ -124,13 +126,32 @@ class ProjectAPI {
             const result = await response.json();
             const list = Array.isArray(result.chatHistory) ? result.chatHistory : [];
             
-            // Fallback pagination client-side if backend ignores limit/before
+            // Backend returns messages sorted DESC (newest first)
+            // For initial load (beforeTimestamp is null), we want the NEWEST messages
+            // For pagination (beforeTimestamp is set), we want OLDER messages before that timestamp
             let filtered = list;
+            
             if (beforeTimestamp !== null) {
-                filtered = filtered.filter(m => (m.timestamp || 0) < beforeTimestamp);
-            }
-            if (filtered.length > limit) {
-                filtered = filtered.slice(-limit); // latest N
+                // Pagination: Get messages older than beforeTimestamp
+                // Backend returns DESC, so we filter and take first N (oldest of the filtered set)
+                const beforeTime = typeof beforeTimestamp === 'string' 
+                    ? Date.parse(beforeTimestamp) 
+                    : (beforeTimestamp < 10000000000 ? beforeTimestamp * 1000 : beforeTimestamp);
+                filtered = filtered.filter(m => {
+                    const msgTime = typeof m.timestamp === 'string' 
+                        ? Date.parse(m.timestamp) 
+                        : (typeof m.timestamp === 'number' ? (m.timestamp < 10000000000 ? m.timestamp * 1000 : m.timestamp) : 0);
+                    return msgTime < beforeTime;
+                });
+                // For older messages, take first N (they're already sorted DESC, so first N are the newest of the older set)
+                if (filtered.length > limit) {
+                    filtered = filtered.slice(0, limit);
+                }
+            } else {
+                // Initial load: Backend returns DESC (newest first), so take FIRST N for newest messages
+                if (filtered.length > limit) {
+                    filtered = filtered.slice(0, limit); // First N = newest N
+                }
             }
             
             return filtered;
@@ -141,7 +162,7 @@ class ProjectAPI {
     }
 
     // Append a single chat message to the database (no overwrite, duplicate-safe backend)
-    async appendChatMessage(sessionId, role, content, timestamp = Math.floor(Date.now()/1000)) {
+    async appendChatMessage(sessionId, role, content, timestamp = new Date().toISOString()) {
         try {
             const formData = new URLSearchParams();
             formData.append('action', 'append_message');
@@ -231,37 +252,91 @@ class ProjectAPI {
                 projectData.metadata.modified = formatDate(new Date());
             }
             
+            // Log the data being sent (for debugging)
+            const projectDataString = JSON.stringify(projectData);
+            console.log('ProjectAPI.saveProject(): Sending data, size:', projectDataString.length, 'bytes');
+            console.log('ProjectAPI.saveProject(): plan outline count:', projectData?.plan?.outline?.length || 0);
+            console.log('ProjectAPI.saveProject(): customSections count:', projectData?.plan?.customSections?.length || 0);
+            
             // Simple form data with just the JSON string
             const formData = new URLSearchParams();
             formData.append('action', 'save_project');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
-            formData.append('project_data', JSON.stringify(projectData));
+            formData.append('project_data', projectDataString);
             
-            const response = await fetch(this.ajaxUrl, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                credentials: 'same-origin',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            console.log('ProjectAPI.saveProject(): Making fetch request to:', this.ajaxUrl);
+            console.log('ProjectAPI.saveProject(): Form data size:', formData.toString().length, 'bytes');
+            
+            let response;
+            try {
+                response = await fetch(this.ajaxUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    credentials: 'same-origin',
+                    body: formData,
+                    mode: 'same-origin' // Explicitly set same-origin mode
+                });
+            } catch (networkError) {
+                console.error('ProjectAPI.saveProject(): Network error:', networkError);
+                console.error('ProjectAPI.saveProject(): Error name:', networkError.name);
+                console.error('ProjectAPI.saveProject(): Error message:', networkError.message);
+                throw new Error('Network error: ' + networkError.message);
             }
 
-            const result = await response.json();
+            console.log('ProjectAPI.saveProject(): Response status:', response.status, response.statusText);
+
+            // Get response text once (can only read once)
+            const responseText = await response.text();
+            console.log('ProjectAPI.saveProject(): Response text length:', responseText.length);
+            console.log('ProjectAPI.saveProject(): Response text (first 500 chars):', responseText.substring(0, 500));
+
+            // Check content type to ensure we got JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.error('ProjectAPI.saveProject(): Received non-JSON response:', contentType);
+                console.error('ProjectAPI.saveProject(): Response body:', responseText.substring(0, 500));
+                throw new Error(`Expected JSON but got ${contentType}`);
+            }
+
+            if (!response.ok) {
+                console.error('ProjectAPI.saveProject(): Response error:', responseText);
+                try {
+                    const errorJson = JSON.parse(responseText);
+                    console.error('ProjectAPI.saveProject(): Error JSON:', errorJson);
+                    throw new Error(errorJson.error || `HTTP ${response.status}: ${response.statusText}`);
+                } catch (e) {
+                    if (e.message && e.message.includes('Error JSON')) {
+                        throw e; // Re-throw parsed error
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            }
+
+            let result;
+            try {
+                result = JSON.parse(responseText);
+                console.log('ProjectAPI.saveProject(): Response success:', result.success);
+                console.log('ProjectAPI.saveProject(): Full result:', JSON.stringify(result, null, 2));
+            } catch (parseError) {
+                console.error('ProjectAPI.saveProject(): JSON parse error:', parseError);
+                console.error('ProjectAPI.saveProject(): Response text that failed to parse:', responseText);
+                throw new Error('Failed to parse response as JSON: ' + parseError.message);
+            }
             
             if (!result.success) {
                 console.error('Save failed:', result.error || 'Unknown error');
+                console.error('Full result:', JSON.stringify(result, null, 2));
                 throw new Error(result.error || 'Save failed');
             }
             
             return result.success === true;
         } catch (error) {
             console.error('Failed to save project:', error);
+            console.error('Error stack:', error.stack);
             return false;
         }
     }
@@ -665,6 +740,44 @@ class ProjectAPI {
                 available: false, 
                 message: `AI endpoint error: ${error.message}` 
             };
+        }
+    }
+    
+    // Save instructor goal for a specific tab
+    async saveInstructorGoal(tab, goalValue) {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('action', 'save_instructor_goal');
+            formData.append('cmid', this.cmId);
+            formData.append('sesskey', this.sesskey);
+            formData.append('tab', tab);
+            formData.append('goal', goalValue);
+            
+            const response = await fetch(this.ajaxUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                credentials: 'same-origin',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+                const errorMsg = result.error || 'Failed to save instructor goal';
+                console.error('ProjectAPI.saveInstructorGoal(): Server error:', errorMsg);
+                throw new Error(errorMsg);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('ProjectAPI.saveInstructorGoal():', error);
+            throw error;
         }
     }
 }
