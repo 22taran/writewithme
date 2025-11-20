@@ -8,7 +8,7 @@
 /**
  * Define the backup_writeassistdev_activity_task class
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -20,7 +20,7 @@ require_once($CFG->dirroot . '/mod/writeassistdev/backup/moodle2/backup_writeass
  * writeassistdev backup task that provides all the settings and steps to perform one
  * complete backup of the activity
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class backup_writeassistdev_activity_task extends backup_activity_task {

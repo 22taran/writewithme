@@ -8,7 +8,7 @@
 /**
  * Define all the backup steps that will be used by the backup_writeassistdev_activity_task
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Define the complete writeassistdev structure for backup, with file and id annotations
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class backup_writeassistdev_activity_structure_step extends backup_activity_structure_step {

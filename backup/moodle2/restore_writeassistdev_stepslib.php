@@ -8,7 +8,7 @@
 /**
  * Define all the restore steps that will be used by the restore_writeassistdev_activity_task
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -17,7 +17,7 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Structure step to restore one writeassistdev activity
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class restore_writeassistdev_activity_structure_step extends restore_activity_structure_step {

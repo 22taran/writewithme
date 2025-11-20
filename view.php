@@ -8,7 +8,7 @@
 /**
  * AI Writing Assistant view page
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -252,6 +252,12 @@ echo $OUTPUT->header();
                 <div class="edit-editor-container">
                     <div class="edit-toolbar-wrapper">
                         <div class="edit-ai-toolbar">
+                            <button id="importWriteContentBtn" class="ai-tool-btn" title="Import content from Write tab">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 2v12M2 8l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Import from Write</span>
+                            </button>
                             <button id="aiReviewBtn" class="ai-tool-btn">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <path d="M8 2L2 6v8h12V6L8 2z" stroke-linecap="round" stroke-linejoin="round"/>

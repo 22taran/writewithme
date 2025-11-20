@@ -8,7 +8,7 @@
 /**
  * Course module viewed event for the writeassistdev module
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -19,7 +19,7 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Course module viewed event class
  * @package    mod_writeassistdev
- * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>
+ * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_module_viewed extends \core\event\course_module_viewed {

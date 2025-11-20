@@ -454,6 +454,20 @@ class TabManager {
             }, 100);
         }
         
+        // If switching to edit tab, ensure import button listener is set up
+        if (tabId === 'edit') {
+            setTimeout(() => {
+                if (window.aiWritingAssistant && window.aiWritingAssistant.modules && window.aiWritingAssistant.modules.edit) {
+                    const editModule = window.aiWritingAssistant.modules.edit;
+                    const importBtn = document.getElementById('importWriteContentBtn');
+                    if (importBtn && !importBtn.hasAttribute('data-listener-attached')) {
+                        importBtn.addEventListener('click', () => editModule.importWriteContent());
+                        importBtn.setAttribute('data-listener-attached', 'true');
+                    }
+                }
+            }, 100);
+        }
+        
         // Update goal display for the active tab
         this.updateGoalForTab(tabId);
 

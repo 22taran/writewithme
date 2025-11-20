@@ -2363,6 +2363,7 @@ class EditModule extends BaseEditorModule {
         // Setup AI Review after editor is initialized
         setTimeout(() => {
             this.setupAIReview();
+            this.setupImportWriteContent();
             // Move Quill toolbar to our custom container
             this.moveToolbarToContainer();
         }, 500);
@@ -2426,6 +2427,76 @@ class EditModule extends BaseEditorModule {
         setTimeout(() => {
             this.loadSavedReviewResults();
         }, 1000);
+    }
+    
+    setupImportWriteContent() {
+        const importBtn = document.getElementById('importWriteContentBtn');
+        if (!importBtn) {
+            return;
+        }
+        
+        // Check if listener is already attached
+        if (importBtn.hasAttribute('data-listener-attached')) {
+            return;
+        }
+        
+        importBtn.addEventListener('click', () => this.importWriteContent());
+        importBtn.setAttribute('data-listener-attached', 'true');
+    }
+    
+    /**
+     * Import content from Write tab into Edit editor
+     */
+    importWriteContent() {
+        if (!this.editor) {
+            alert('Editor not ready. Please try again in a moment.');
+            return;
+        }
+
+        // Get write content from global state
+        const currentState = this.globalState.getState();
+        const writeContent = currentState.write?.content;
+        
+        if (!writeContent || !writeContent.trim() || 
+            writeContent === '<p><br></p>' || 
+            writeContent === '<p></p>' || 
+            writeContent === '<br>' ||
+            writeContent.replace(/<[^>]*>/g, '').trim() === '') {
+            // No write content available
+            alert('No content available in the Write tab. Please write some content first.');
+            return;
+        }
+
+        // Check if editor already has content
+        const currentEditContent = this.editor.root.innerHTML.trim();
+        const isEmpty = !currentEditContent || 
+                       currentEditContent === '<p><br></p>' || 
+                       currentEditContent === '<p></p>' || 
+                       currentEditContent === '<br>' ||
+                       currentEditContent.replace(/<[^>]*>/g, '').trim() === '';
+
+        // Ask for confirmation if editor has content
+        if (!isEmpty) {
+            const confirmMessage = 'The editor already contains content. Importing from Write tab will replace the current content. Do you want to continue?';
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+        }
+
+        // Insert write content into edit editor
+        this.editor.clipboard.dangerouslyPasteHTML(writeContent);
+        
+        // Show success message
+        const importBtn = document.getElementById('importWriteContentBtn');
+        if (importBtn) {
+            const originalText = importBtn.querySelector('span').textContent;
+            importBtn.querySelector('span').textContent = 'Imported!';
+            importBtn.style.opacity = '0.7';
+            setTimeout(() => {
+                importBtn.querySelector('span').textContent = originalText;
+                importBtn.style.opacity = '1';
+            }, 2000);
+        }
     }
     
     getReviewStorageKey() {

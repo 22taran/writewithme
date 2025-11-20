@@ -11,6 +11,9 @@
                 <FIELD NAME="template" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Selected template ID"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time modified"/>
+                <FIELD NAME="plan_goal" TYPE="text" NOTNULL="false" COMMENT="Instructor goal for plan phase"/>
+                <FIELD NAME="write_goal" TYPE="text" NOTNULL="false" COMMENT="Instructor goal for write phase"/>
+                <FIELD NAME="edit_goal" TYPE="text" NOTNULL="false" COMMENT="Instructor goal for edit phase"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -43,6 +46,143 @@
             <INDEXES>
                 <INDEX NAME="userid" UNIQUE="false" FIELDS="userid"/>
                 <INDEX NAME="writeassistdevid" UNIQUE="false" FIELDS="writeassistdevid"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="writeassistdev_ideas" COMMENT="Student ideas for writing">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="content" TYPE="text" NOTNULL="true" COMMENT="Idea content"/>
+                <FIELD NAME="location" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Location of idea"/>
+                <FIELD NAME="section_id" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Section ID"/>
+                <FIELD NAME="ai_generated" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether idea is AI generated"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+                <FIELD NAME="modified_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time modified"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,writeassistdevid"/>
+                <INDEX NAME="idx_location" UNIQUE="false" FIELDS="location"/>
+                <INDEX NAME="idx_ai_generated" UNIQUE="false" FIELDS="ai_generated"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="writeassistdev_content" COMMENT="Student content by phase">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="phase" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Writing phase"/>
+                <FIELD NAME="content" TYPE="text" NOTNULL="false" COMMENT="Content text"/>
+                <FIELD NAME="word_count" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" COMMENT="Word count"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+                <FIELD NAME="modified_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time modified"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="unique_user_phase" TYPE="unique" FIELDS="writeassistdevid,userid,phase"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idx_word_count" UNIQUE="false" FIELDS="word_count"/>
+                <INDEX NAME="idx_phase" UNIQUE="false" FIELDS="phase"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="writeassistdev_chat" COMMENT="Chat messages">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="chat_session_id" TYPE="char" LENGTH="50" NOTNULL="true" COMMENT="Chat session ID"/>
+                <FIELD NAME="role" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Message role (user/assistant)"/>
+                <FIELD NAME="content" TYPE="text" NOTNULL="true" COMMENT="Message content"/>
+                <FIELD NAME="timestamp" TYPE="timestamp" NOTNULL="true" COMMENT="Message timestamp"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,writeassistdevid"/>
+                <INDEX NAME="idx_chat_session" UNIQUE="false" FIELDS="chat_session_id"/>
+                <INDEX NAME="idx_timestamp" UNIQUE="false" FIELDS="timestamp"/>
+                <INDEX NAME="idx_role" UNIQUE="false" FIELDS="role"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="writeassistdev_chat_sessions" COMMENT="Chat session metadata">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="session_id" TYPE="char" LENGTH="50" NOTNULL="true" COMMENT="Session ID"/>
+                <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="false" DEFAULT="New Chat" COMMENT="Session title"/>
+                <FIELD NAME="is_active" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether session is active"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+                <FIELD NAME="modified_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time modified"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="unique_session" TYPE="unique" FIELDS="writeassistdevid,userid,session_id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,writeassistdevid"/>
+                <INDEX NAME="idx_session_id" UNIQUE="false" FIELDS="session_id"/>
+                <INDEX NAME="idx_is_active" UNIQUE="false" FIELDS="is_active"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="writeassistdev_metadata" COMMENT="Student metadata for activity">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="Student title"/>
+                <FIELD NAME="description" TYPE="text" NOTNULL="false" COMMENT="Student description"/>
+                <FIELD NAME="current_tab" TYPE="char" LENGTH="20" NOTNULL="false" DEFAULT="plan" COMMENT="Current active tab"/>
+                <FIELD NAME="instructor_instructions" TYPE="text" NOTNULL="false" COMMENT="Instructor instructions"/>
+                <FIELD NAME="goal" TYPE="text" NOTNULL="false" COMMENT="Student goal"/>
+                <FIELD NAME="plan_outline" TYPE="text" NOTNULL="false" COMMENT="Plan outline structure"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+                <FIELD NAME="modified_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time modified"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="unique_user_activity" TYPE="unique" FIELDS="writeassistdevid,userid"/>
+            </KEYS>
+        </TABLE>
+        <TABLE NAME="writeassistdev_versions" COMMENT="Content version history">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="phase" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Writing phase"/>
+                <FIELD NAME="content" TYPE="text" NOTNULL="true" COMMENT="Content text"/>
+                <FIELD NAME="word_count" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" COMMENT="Word count"/>
+                <FIELD NAME="version_number" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" COMMENT="Version number"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+                <FIELD NAME="modified_by" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="false" COMMENT="User who modified"/>
+                <FIELD NAME="change_summary" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="Change summary"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="modified_by_fk" TYPE="foreign" FIELDS="modified_by" REFTABLE="user" REFFIELDS="id" ONDELETE="setnull"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="writeassistdevid,userid,phase"/>
+                <INDEX NAME="idx_version_number" UNIQUE="false" FIELDS="version_number"/>
+                <INDEX NAME="idx_created_at" UNIQUE="false" FIELDS="created_at"/>
             </INDEXES>
         </TABLE>
     </TABLES>

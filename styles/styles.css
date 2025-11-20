@@ -1420,6 +1420,11 @@ body.activity-edit .clear-chat-btn:hover {
     height: 14px;
 }
 
+/* Rotate import button icon to point down */
+#importWriteContentBtn svg {
+    transform: rotate(180deg);
+}
+
 .ai-tool-btn span {
     white-space: nowrap;
     font-size: 0.75rem;
