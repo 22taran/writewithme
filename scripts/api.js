@@ -14,7 +14,7 @@ class ProjectAPI {
         this.apiEndpoint = window.apiEndpoint;
         this.sesskey = window.sesskey;
         this.cmId = window.cmId;
-        
+
         // Log configuration status
         if (this.apiEndpoint === null || this.apiEndpoint === '' || this.apiEndpoint === 'null') {
             console.warn('⚠️ API Endpoint is not configured. AI features will not be available.');
@@ -23,7 +23,7 @@ class ProjectAPI {
         } else {
             console.log('API Endpoint configured:', this.apiEndpoint);
         }
-        
+
         if (!this.ajaxUrl || !this.sesskey || !this.cmId) {
             console.error('Missing required API configuration');
         }
@@ -37,7 +37,7 @@ class ProjectAPI {
             formData.append('action', 'load_project');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
-            
+
             const response = await fetch(this.ajaxUrl, {
                 method: 'POST',
                 headers: {
@@ -59,7 +59,7 @@ class ProjectAPI {
             return null;
         }
     }
-    
+
     // OPTIMIZED: Load ONLY chat history (for fast initialization)
     async loadChatHistoryOnly() {
         try {
@@ -67,7 +67,7 @@ class ProjectAPI {
             formData.append('action', 'load_chat_history_only');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
-            
+
             const response = await fetch(this.ajaxUrl, {
                 method: 'POST',
                 headers: {
@@ -103,7 +103,7 @@ class ProjectAPI {
             if (beforeTimestamp !== null) {
                 formData.append('before', String(beforeTimestamp));
             }
-            
+
             const controller = timeoutMs > 0 ? new AbortController() : null;
             let timeoutId = null;
             if (controller) {
@@ -120,26 +120,26 @@ class ProjectAPI {
                 body: formData,
                 signal: controller ? controller.signal : undefined
             });
-            
+
             if (timeoutId) clearTimeout(timeoutId);
             if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             const result = await response.json();
             const list = Array.isArray(result.chatHistory) ? result.chatHistory : [];
-            
+
             // Backend returns messages sorted DESC (newest first)
             // For initial load (beforeTimestamp is null), we want the NEWEST messages
             // For pagination (beforeTimestamp is set), we want OLDER messages before that timestamp
             let filtered = list;
-            
+
             if (beforeTimestamp !== null) {
                 // Pagination: Get messages older than beforeTimestamp
                 // Backend returns DESC, so we filter and take first N (oldest of the filtered set)
-                const beforeTime = typeof beforeTimestamp === 'string' 
-                    ? Date.parse(beforeTimestamp) 
+                const beforeTime = typeof beforeTimestamp === 'string'
+                    ? Date.parse(beforeTimestamp)
                     : (beforeTimestamp < 10000000000 ? beforeTimestamp * 1000 : beforeTimestamp);
                 filtered = filtered.filter(m => {
-                    const msgTime = typeof m.timestamp === 'string' 
-                        ? Date.parse(m.timestamp) 
+                    const msgTime = typeof m.timestamp === 'string'
+                        ? Date.parse(m.timestamp)
                         : (typeof m.timestamp === 'number' ? (m.timestamp < 10000000000 ? m.timestamp * 1000 : m.timestamp) : 0);
                     return msgTime < beforeTime;
                 });
@@ -153,7 +153,7 @@ class ProjectAPI {
                     filtered = filtered.slice(0, limit); // First N = newest N
                 }
             }
-            
+
             return filtered;
         } catch (e) {
             console.error('Failed to load chat history page:', e);
@@ -251,23 +251,23 @@ class ProjectAPI {
             if (projectData.metadata) {
                 projectData.metadata.modified = formatDate(new Date());
             }
-            
+
             // Log the data being sent (for debugging)
             const projectDataString = JSON.stringify(projectData);
             console.log('ProjectAPI.saveProject(): Sending data, size:', projectDataString.length, 'bytes');
             console.log('ProjectAPI.saveProject(): plan outline count:', projectData?.plan?.outline?.length || 0);
             console.log('ProjectAPI.saveProject(): customSections count:', projectData?.plan?.customSections?.length || 0);
-            
+
             // Simple form data with just the JSON string
             const formData = new URLSearchParams();
             formData.append('action', 'save_project');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
             formData.append('project_data', projectDataString);
-            
+
             console.log('ProjectAPI.saveProject(): Making fetch request to:', this.ajaxUrl);
             console.log('ProjectAPI.saveProject(): Form data size:', formData.toString().length, 'bytes');
-            
+
             let response;
             try {
                 response = await fetch(this.ajaxUrl, {
@@ -326,14 +326,14 @@ class ProjectAPI {
                 console.error('ProjectAPI.saveProject(): Response text that failed to parse:', responseText);
                 throw new Error('Failed to parse response as JSON: ' + parseError.message);
             }
-            
+
             if (!result.success) {
                 console.error('Save failed:', result.error || 'Unknown error');
                 console.error('Full result:', JSON.stringify(result, null, 2));
                 throw new Error(result.error || 'Save failed');
             }
-            
-            return result.success === true;
+
+            return result;
         } catch (error) {
             console.error('Failed to save project:', error);
             console.error('Error stack:', error.stack);
@@ -342,13 +342,47 @@ class ProjectAPI {
     }
 
     // Delete project data from Moodle database
+    async logActivity(activities) {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('action', 'log_activity');
+            formData.append('cmid', this.cmId);
+            formData.append('sesskey', this.sesskey);
+            formData.append('activities', JSON.stringify(activities));
+
+            const response = await fetch(this.ajaxUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                credentials: 'same-origin',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to log activity');
+            }
+
+            return result;
+        } catch (error) {
+            console.error('ProjectAPI: Error logging activity:', error);
+            throw error;
+        }
+    }
+
     async deleteProject() {
         try {
             const formData = new URLSearchParams();
             formData.append('action', 'delete_project');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
-            
+
             const response = await fetch(this.ajaxUrl, {
                 method: 'POST',
                 headers: {
@@ -379,18 +413,18 @@ class ProjectAPI {
                 console.log('Using embedded template data');
                 return window.templateData;
             }
-            
+
             // Fallback: try direct file access
             const templateUrl = `${window.location.origin}/mod/writeassistdev/data/templates/${templateId}.json`;
-            const response = await fetch(templateUrl, { 
+            const response = await fetch(templateUrl, {
                 cache: 'no-store',
                 credentials: 'same-origin'
             });
-            
+
             if (!response.ok) {
                 throw new Error(`Failed to load template: ${response.status}`);
             }
-            
+
             return await response.json();
         } catch (error) {
             console.error('Failed to load template:', error);
@@ -418,7 +452,7 @@ class ProjectAPI {
                     sesskey: this.sesskey
                 })
             });
-            
+
             const result = await response.json();
             console.log('AJAX test result:', result);
             return result.success;
@@ -432,12 +466,12 @@ class ProjectAPI {
     async sendChatMessage(userMessage, currentProject = null) {
         if (!this.apiEndpoint || this.apiEndpoint === null || this.apiEndpoint === '' || this.apiEndpoint === 'null') {
             console.error('API endpoint is not configured');
-            return { 
+            return {
                 assistantReply: 'The AI Writing Assistant API endpoint has not been configured. Please contact your site administrator to configure the API endpoint in Site Administration → Plugins → Activity modules → AI Writing Assistant.',
-                updatedProject: null 
+                updatedProject: null
             };
         }
-        
+
         const fullUrl = `${this.apiEndpoint}/api/chat`;
 
         // Sanitize project data for API consumption
@@ -449,15 +483,15 @@ class ProjectAPI {
                 userInput: userMessage,
                 currentProject: sanitizedProject
             };
-            
+
             let jsonString;
             try {
                 jsonString = JSON.stringify(requestBody);
             } catch (serializeError) {
                 console.error('Failed to serialize request data:', serializeError);
-                return { 
+                return {
                     assistantReply: 'Error: Could not prepare request data for AI service.',
-                    updatedProject: null 
+                    updatedProject: null
                 };
             }
 
@@ -470,18 +504,18 @@ class ProjectAPI {
             // Check if we got HTML instead of JSON (common with 404 errors)
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
-                return { 
+                return {
                     assistantReply: `API Error: Received ${response.status} ${response.statusText}. Expected JSON but got ${contentType}`,
-                    updatedProject: null 
+                    updatedProject: null
                 };
             }
 
             const result = await response.json();
-            
+
             if (!response.ok) {
-                return { 
+                return {
                     assistantReply: result.assistantReply || `API Error: ${response.status}`,
-                    updatedProject: null 
+                    updatedProject: null
                 };
             }
 
@@ -505,11 +539,11 @@ class ProjectAPI {
         // Helper function to convert HTML to plain text
         const htmlToText = (html) => {
             if (!html || typeof html !== 'string') return html;
-            
+
             // Create a temporary div to parse HTML
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;
-            
+
             // Get text content and clean up whitespace
             return tempDiv.textContent || tempDiv.innerText || '';
         };
@@ -535,7 +569,7 @@ class ProjectAPI {
             } else {
                 ideasArray = [];
             }
-            
+
             sanitized.plan.ideas = ideasArray.map(idea => ({
                 ...idea,
                 content: htmlToText(idea.content)
@@ -559,7 +593,7 @@ class ProjectAPI {
         const cleanObject = (obj) => {
             if (obj === null || typeof obj !== 'object') return obj;
             if (Array.isArray(obj)) return obj.map(cleanObject);
-            
+
             const cleaned = {};
             for (const [key, value] of Object.entries(obj)) {
                 if (typeof value === 'function') continue;
@@ -575,10 +609,10 @@ class ProjectAPI {
     // Merge updated project data from AI response with current state
     mergeUpdatedProject(currentProject, updatedProject) {
         if (!updatedProject) return currentProject;
-        
+
         // Create a deep copy of current project
         const merged = JSON.parse(JSON.stringify(currentProject));
-        
+
         // Merge each section of the project
         Object.keys(updatedProject).forEach(key => {
             if (key === 'chatHistory') {
@@ -587,11 +621,11 @@ class ProjectAPI {
                 if (Array.isArray(updatedProject[key])) {
                     const existingMessages = merged[key] || [];
                     const newMessages = updatedProject[key];
-                    
+
                     // Only add messages that don't already exist
                     newMessages.forEach(newMsg => {
-                        const exists = existingMessages.some(existingMsg => 
-                            existingMsg.role === newMsg.role && 
+                        const exists = existingMessages.some(existingMsg =>
+                            existingMsg.role === newMsg.role &&
                             existingMsg.content === newMsg.content &&
                             existingMsg.timestamp === newMsg.timestamp
                         );
@@ -609,14 +643,14 @@ class ProjectAPI {
                 merged[key] = updatedProject[key];
             }
         });
-        
+
         return merged;
     }
 
     // Deep merge two objects
     deepMerge(target, source) {
         const result = { ...target };
-        
+
         for (const key in source) {
             if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
                 result[key] = this.deepMerge(target[key] || {}, source[key]);
@@ -624,7 +658,7 @@ class ProjectAPI {
                 result[key] = source[key];
             }
         }
-        
+
         return result;
     }
 
@@ -717,9 +751,9 @@ class ProjectAPI {
     // Check if AI endpoint is running and accessible
     async checkAIHealth() {
         if (!this.apiEndpoint || this.apiEndpoint === null || this.apiEndpoint === '' || this.apiEndpoint === 'null') {
-            return { 
-                available: false, 
-                message: 'AI endpoint not configured. Please contact your site administrator.' 
+            return {
+                available: false,
+                message: 'AI endpoint not configured. Please contact your site administrator.'
             };
         }
 
@@ -730,19 +764,19 @@ class ProjectAPI {
                 method: 'GET',
                 timeout: 5000
             });
-            
-            return { 
-                available: response.ok, 
+
+            return {
+                available: response.ok,
                 message: response.ok ? 'AI endpoint is available' : 'AI endpoint not responding'
             };
         } catch (error) {
-            return { 
-                available: false, 
-                message: `AI endpoint error: ${error.message}` 
+            return {
+                available: false,
+                message: `AI endpoint error: ${error.message}`
             };
         }
     }
-    
+
     // Save instructor goal for a specific tab
     async saveInstructorGoal(tab, goalValue) {
         try {
@@ -752,7 +786,7 @@ class ProjectAPI {
             formData.append('sesskey', this.sesskey);
             formData.append('tab', tab);
             formData.append('goal', goalValue);
-            
+
             const response = await fetch(this.ajaxUrl, {
                 method: 'POST',
                 headers: {
@@ -762,22 +796,51 @@ class ProjectAPI {
                 credentials: 'same-origin',
                 body: formData
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             const result = await response.json();
             if (!result.success) {
                 const errorMsg = result.error || 'Failed to save instructor goal';
                 console.error('ProjectAPI.saveInstructorGoal(): Server error:', errorMsg);
                 throw new Error(errorMsg);
             }
-            
+
             return true;
         } catch (error) {
             console.error('ProjectAPI.saveInstructorGoal():', error);
             throw error;
+        }
+    }
+    // Submit the project
+    async submitProject() {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('action', 'submit_project');
+            formData.append('cmid', this.cmId);
+            formData.append('sesskey', this.sesskey);
+
+            const response = await fetch(this.ajaxUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                credentials: 'same-origin',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            return result.success === true;
+        } catch (error) {
+            console.error('Failed to submit project:', error);
+            return false;
         }
     }
 }

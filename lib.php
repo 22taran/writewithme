@@ -50,6 +50,44 @@ function writeassistdev_add_instance($data, $form) {
     $data->write_goal = isset($data->write_goal) && $data->write_goal !== null ? (string)$data->write_goal : '';
     $data->edit_goal = isset($data->edit_goal) && $data->edit_goal !== null ? (string)$data->edit_goal : '';
 
+    // Handle date_time_selector fields - convert arrays to timestamps
+    if (isset($data->startdate) && is_array($data->startdate)) {
+        $data->startdate = !empty($data->startdate['enabled']) 
+            ? make_timestamp($data->startdate['year'], $data->startdate['month'], 
+                           $data->startdate['day'], $data->startdate['hour'], 
+                           $data->startdate['minute']) : null;
+    }
+    if (isset($data->duedate) && is_array($data->duedate)) {
+        $data->duedate = !empty($data->duedate['enabled']) 
+            ? make_timestamp($data->duedate['year'], $data->duedate['month'], 
+                           $data->duedate['day'], $data->duedate['hour'], 
+                           $data->duedate['minute']) : null;
+    }
+    if (isset($data->enddate) && is_array($data->enddate)) {
+        $data->enddate = !empty($data->enddate['enabled']) 
+            ? make_timestamp($data->enddate['year'], $data->enddate['month'], 
+                           $data->enddate['day'], $data->enddate['hour'], 
+                           $data->enddate['minute']) : null;
+    }
+
+    // Handle custom_outline - validate and store JSON
+    if (isset($data->custom_outline)) {
+        $outline = trim($data->custom_outline);
+        if (!empty($outline)) {
+            // Validate JSON
+            $decoded = json_decode($outline, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                // Store as pretty-printed JSON
+                $data->custom_outline = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            } else {
+                // Invalid JSON, set to null
+                $data->custom_outline = null;
+            }
+        } else {
+            $data->custom_outline = null;
+        }
+    }
+
     // Insert the new writeassistdev instance.
     $data->id = $DB->insert_record('writeassistdev', $data);
 
@@ -88,6 +126,44 @@ function writeassistdev_update_instance($data, $form) {
     $data->plan_goal = isset($data->plan_goal) && $data->plan_goal !== null ? (string)$data->plan_goal : '';
     $data->write_goal = isset($data->write_goal) && $data->write_goal !== null ? (string)$data->write_goal : '';
     $data->edit_goal = isset($data->edit_goal) && $data->edit_goal !== null ? (string)$data->edit_goal : '';
+
+    // Handle date_time_selector fields - convert arrays to timestamps
+    if (isset($data->startdate) && is_array($data->startdate)) {
+        $data->startdate = !empty($data->startdate['enabled']) 
+            ? make_timestamp($data->startdate['year'], $data->startdate['month'], 
+                           $data->startdate['day'], $data->startdate['hour'], 
+                           $data->startdate['minute']) : null;
+    }
+    if (isset($data->duedate) && is_array($data->duedate)) {
+        $data->duedate = !empty($data->duedate['enabled']) 
+            ? make_timestamp($data->duedate['year'], $data->duedate['month'], 
+                           $data->duedate['day'], $data->duedate['hour'], 
+                           $data->duedate['minute']) : null;
+    }
+    if (isset($data->enddate) && is_array($data->enddate)) {
+        $data->enddate = !empty($data->enddate['enabled']) 
+            ? make_timestamp($data->enddate['year'], $data->enddate['month'], 
+                           $data->enddate['day'], $data->enddate['hour'], 
+                           $data->enddate['minute']) : null;
+    }
+
+    // Handle custom_outline - validate and store JSON
+    if (isset($data->custom_outline)) {
+        $outline = trim($data->custom_outline);
+        if (!empty($outline)) {
+            // Validate JSON
+            $decoded = json_decode($outline, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                // Store as pretty-printed JSON
+                $data->custom_outline = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            } else {
+                // Invalid JSON, set to null
+                $data->custom_outline = null;
+            }
+        } else {
+            $data->custom_outline = null;
+        }
+    }
 
     $DB->update_record('writeassistdev', $data);
 
@@ -469,3 +545,85 @@ function writeassistdev_load_template($templateId) {
     return $templateData;
 }
 
+
+/**
+ * Calculate activity statistics from logs
+ * @param array $logs Array of activity log records
+ * @return array Statistics array
+ */
+function writeassistdev_calculate_activity_stats($logs) {
+    if (empty($logs)) {
+        return [
+            'total_actions' => 0,
+            'total_typed' => 0,
+            'total_pasted' => 0,
+            'original_percentage' => 0,
+            'paste_count' => 0,
+            'avg_typing_speed' => 0,
+            'last_activity' => null,
+            'paste_details' => []
+        ];
+    }
+    
+    $totalTyped = 0;
+    $totalPasted = 0;
+    $pasteCount = 0;
+    $typingSpeeds = [];
+    $pasteDetails = [];
+    $lastActivity = 0;
+    
+    foreach ($logs as $log) {
+        if ($log->timestamp > $lastActivity) {
+            $lastActivity = $log->timestamp;
+        }
+        
+        // Estimate typed characters from typing actions
+        // We track content_length changes, so we can estimate typing
+        if ($log->action_type === 'typing') {
+            // Conservative estimate: assume 5-15 chars per typing event
+            // This is an approximation since we batch events
+            $totalTyped += 10; // Average estimate per typing action
+        }
+        
+        if ($log->action_type === 'paste' || $log->action_type === 'large_insert' || $log->action_type === 'import') {
+            $pastedLen = $log->pasted_length > 0 ? $log->pasted_length : 0;
+            $totalPasted += $pastedLen;
+            if ($pastedLen > 0) {
+                $pasteCount++;
+                $pasteDetails[] = [
+                    'timestamp' => $log->timestamp,
+                    'phase' => $log->phase,
+                    'length' => $pastedLen,
+                    'content' => $log->pasted_content ?? ''
+                ];
+            }
+        }
+        
+        if ($log->typing_speed > 0) {
+            $typingSpeeds[] = $log->typing_speed;
+        }
+    }
+    
+    // Calculate original percentage
+    $total = $totalTyped + $totalPasted;
+    $originalPercentage = $total > 0 ? round(($totalTyped / $total) * 100) : 0;
+    
+    // Calculate average typing speed
+    $avgTypingSpeed = !empty($typingSpeeds) ? round(array_sum($typingSpeeds) / count($typingSpeeds)) : 0;
+    
+    // Sort paste details by timestamp (newest first)
+    usort($pasteDetails, function($a, $b) {
+        return $b['timestamp'] - $a['timestamp'];
+    });
+    
+    return [
+        'total_actions' => count($logs),
+        'total_typed' => $totalTyped,
+        'total_pasted' => $totalPasted,
+        'original_percentage' => $originalPercentage,
+        'paste_count' => $pasteCount,
+        'avg_typing_speed' => $avgTypingSpeed,
+        'last_activity' => $lastActivity > 0 ? $lastActivity : null,
+        'paste_details' => $pasteDetails
+    ];
+}

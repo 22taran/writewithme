@@ -91,6 +91,83 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
         $mform->addHelpButton('edit_goal', 'edit_goal', 'mod_writeassistdev');
         $mform->setDefault('edit_goal', '');
 
+        // Outline Structure ---------------------------------------------------------
+        $mform->addElement('header', 'outline', 'Outline Structure');
+        $mform->setExpanded('outline', false);
+        
+        $outlinehelp = 'Define the outline sections that students will use for their assignment. Each section should have an id, title, description, required flag, and allowMultiple flag.';
+        $mform->addElement('static', 'outline_help', '', $outlinehelp);
+        
+        // Default outline structure
+        $defaultoutline = json_encode([
+            [
+                'id' => 'introduction',
+                'title' => 'Introduction',
+                'description' => 'Hook, background, and thesis statement',
+                'required' => true,
+                'allowMultiple' => false
+            ],
+            [
+                'id' => 'main-arguments',
+                'title' => 'Main Arguments',
+                'description' => 'Your key points supporting your thesis',
+                'required' => true,
+                'allowMultiple' => true
+            ],
+            [
+                'id' => 'conclusion',
+                'title' => 'Conclusion',
+                'description' => 'Restate thesis and summarize main points',
+                'required' => true,
+                'allowMultiple' => false
+            ]
+        ], JSON_PRETTY_PRINT);
+        
+        $mform->addElement('textarea', 'custom_outline', 'Outline Sections (JSON)', 
+            array('rows' => 15, 'cols' => 80, 'wrap' => 'off'));
+        $mform->setType('custom_outline', PARAM_RAW);
+        $mform->addHelpButton('custom_outline', 'outline_structure', 'mod_writeassistdev');
+        $mform->setDefault('custom_outline', $defaultoutline);
+
+        // Availability ---------------------------------------------------------------
+        $mform->addElement('header', 'accesscontrol', get_string('availability', 'core'));
+
+        $mform->addElement('date_time_selector', 'startdate', 'Start date', array('optional' => true));
+        $mform->addHelpButton('startdate', 'startdate', 'mod_writeassistdev');
+
+        $mform->addElement('date_time_selector', 'duedate', 'Due date', array('optional' => true));
+        $mform->addHelpButton('duedate', 'duedate', 'mod_writeassistdev');
+
+        $mform->addElement('date_time_selector', 'enddate', 'End date', array('optional' => true));
+        $mform->addHelpButton('enddate', 'enddate', 'mod_writeassistdev');
+
+        // Get course context safely - check if course exists
+        global $COURSE;
+        $courseid = null;
+        if (isset($this->course) && isset($this->course->id)) {
+            $courseid = $this->course->id;
+        } else if (isset($COURSE) && isset($COURSE->id)) {
+            $courseid = $COURSE->id;
+        }
+        
+        if ($courseid) {
+            try {
+                $coursecontext = context_course::instance($courseid);
+                // To be removed (deprecated) with MDL-67526.
+                if (!empty($CFG->enableplagiarism)) {
+                    require_once($CFG->libdir . '/plagiarismlib.php');
+                    plagiarism_get_form_elements_module($mform, $coursecontext, 'mod_writeassistdev');
+                }
+            } catch (Exception $e) {
+                // Course context not available, skip plagiarism elements
+                debugging('Could not get course context for plagiarism elements: ' . $e->getMessage(), DEBUG_NORMAL);
+            }
+        }
+
+        // Common module settings, Restrict availability, Activity completion etc. ----
+        $features = array('groups' => true, 'groupings' => true,
+                'outcomes' => true, 'gradecat' => false, 'idnumber' => false);
+
         // Add standard elements, common to all modules.
         $this->standard_coursemodule_elements();
 
@@ -133,6 +210,80 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
         $defaultvalues['plan_goal'] = ($defaultvalues['plan_goal'] !== null) ? (string)$defaultvalues['plan_goal'] : '';
         $defaultvalues['write_goal'] = ($defaultvalues['write_goal'] !== null) ? (string)$defaultvalues['write_goal'] : '';
         $defaultvalues['edit_goal'] = ($defaultvalues['edit_goal'] !== null) ? (string)$defaultvalues['edit_goal'] : '';
+        
+        // Convert timestamp fields to date_time_selector format (array with enabled, year, month, day, hour, minute)
+        if (isset($defaultvalues['startdate']) && is_numeric($defaultvalues['startdate'])) {
+            $defaultvalues['startdate'] = array(
+                'enabled' => 1,
+                'year' => (int)date('Y', $defaultvalues['startdate']),
+                'month' => (int)date('n', $defaultvalues['startdate']),
+                'day' => (int)date('j', $defaultvalues['startdate']),
+                'hour' => (int)date('G', $defaultvalues['startdate']),
+                'minute' => (int)date('i', $defaultvalues['startdate'])
+            );
+        } else if (!isset($defaultvalues['startdate'])) {
+            $defaultvalues['startdate'] = array('enabled' => 0);
+        }
+        
+        if (isset($defaultvalues['duedate']) && is_numeric($defaultvalues['duedate'])) {
+            $defaultvalues['duedate'] = array(
+                'enabled' => 1,
+                'year' => (int)date('Y', $defaultvalues['duedate']),
+                'month' => (int)date('n', $defaultvalues['duedate']),
+                'day' => (int)date('j', $defaultvalues['duedate']),
+                'hour' => (int)date('G', $defaultvalues['duedate']),
+                'minute' => (int)date('i', $defaultvalues['duedate'])
+            );
+        } else if (!isset($defaultvalues['duedate'])) {
+            $defaultvalues['duedate'] = array('enabled' => 0);
+        }
+        
+        if (isset($defaultvalues['enddate']) && is_numeric($defaultvalues['enddate'])) {
+            $defaultvalues['enddate'] = array(
+                'enabled' => 1,
+                'year' => (int)date('Y', $defaultvalues['enddate']),
+                'month' => (int)date('n', $defaultvalues['enddate']),
+                'day' => (int)date('j', $defaultvalues['enddate']),
+                'hour' => (int)date('G', $defaultvalues['enddate']),
+                'minute' => (int)date('i', $defaultvalues['enddate'])
+            );
+        } else if (!isset($defaultvalues['enddate'])) {
+            $defaultvalues['enddate'] = array('enabled' => 0);
+        }
+        
+        // Handle custom_outline - ensure it's formatted nicely
+        if (isset($defaultvalues['custom_outline']) && !empty($defaultvalues['custom_outline'])) {
+            // Try to decode and re-encode to ensure proper formatting
+            $decoded = json_decode($defaultvalues['custom_outline'], true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $defaultvalues['custom_outline'] = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+        } else if (!isset($defaultvalues['custom_outline'])) {
+            // Set default outline if not set
+            $defaultvalues['custom_outline'] = json_encode([
+                [
+                    'id' => 'introduction',
+                    'title' => 'Introduction',
+                    'description' => 'Hook, background, and thesis statement',
+                    'required' => true,
+                    'allowMultiple' => false
+                ],
+                [
+                    'id' => 'main-arguments',
+                    'title' => 'Main Arguments',
+                    'description' => 'Your key points supporting your thesis',
+                    'required' => true,
+                    'allowMultiple' => true
+                ],
+                [
+                    'id' => 'conclusion',
+                    'title' => 'Conclusion',
+                    'description' => 'Restate thesis and summarize main points',
+                    'required' => true,
+                    'allowMultiple' => false
+                ]
+            ], JSON_PRETTY_PRINT);
+        }
     }
 
     /**

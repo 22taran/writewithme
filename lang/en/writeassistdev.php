@@ -51,6 +51,20 @@ $string['write_goal_help'] = 'Enter the goal for the Write phase. This will be d
 $string['edit_goal'] = 'Edit & Revise Goal';
 $string['edit_goal_help'] = 'Enter the goal for the Edit & Revise phase. This will be displayed to students in read-only mode.';
 
+// Availability strings
+$string['startdate'] = 'Start date';
+$string['startdate_help'] = 'The date and time when the activity becomes available to students.';
+$string['duedate'] = 'Due date';
+$string['duedate_help'] = 'The date and time when submissions are due.';
+$string['enddate'] = 'End date';
+$string['enddate_help'] = 'The date and time when the activity closes and no longer accepts submissions.';
+
+// Outline structure strings
+$string['outline_structure'] = 'Outline Structure';
+$string['outline_structure_help'] = 'Define the outline sections that students will use for their assignment. Each section should have an id, title, description, required flag, and allowMultiple flag.';
+$string['outline_sections'] = 'Outline Sections (JSON)';
+$string['outline_sections_help'] = 'Enter the outline structure as JSON. Each section should include: id, title, description, required (true/false), and allowMultiple (true/false).';
+
 // Settings strings
 $string['settingsdescription'] = 'Configure settings for the AI Writing Assistant module.';
 $string['api_endpoint'] = 'API Endpoint';

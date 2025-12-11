@@ -14,6 +14,10 @@
                 <FIELD NAME="plan_goal" TYPE="text" NOTNULL="false" COMMENT="Instructor goal for plan phase"/>
                 <FIELD NAME="write_goal" TYPE="text" NOTNULL="false" COMMENT="Instructor goal for write phase"/>
                 <FIELD NAME="edit_goal" TYPE="text" NOTNULL="false" COMMENT="Instructor goal for edit phase"/>
+                <FIELD NAME="startdate" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="false" COMMENT="Start date"/>
+                <FIELD NAME="duedate" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="false" COMMENT="Due date"/>
+                <FIELD NAME="enddate" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="false" COMMENT="End date"/>
+                <FIELD NAME="custom_outline" TYPE="text" NOTNULL="false" COMMENT="Custom outline structure (JSON)"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -183,6 +187,35 @@
                 <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="writeassistdevid,userid,phase"/>
                 <INDEX NAME="idx_version_number" UNIQUE="false" FIELDS="version_number"/>
                 <INDEX NAME="idx_created_at" UNIQUE="false" FIELDS="created_at"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="writeassistdev_activity_log" COMMENT="Student activity tracking for writing analytics">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
+                <FIELD NAME="phase" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Writing phase (write/edit)"/>
+                <FIELD NAME="action_type" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Action type (typing, paste, copy, delete, etc)"/>
+                <FIELD NAME="content_length" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" COMMENT="Content length in characters"/>
+                <FIELD NAME="word_count" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" COMMENT="Word count at time of action"/>
+                <FIELD NAME="pasted_content" TYPE="text" NOTNULL="false" COMMENT="Content that was pasted (if action is paste)"/>
+                <FIELD NAME="pasted_length" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" COMMENT="Length of pasted content"/>
+                <FIELD NAME="typed_content" TYPE="text" NOTNULL="false" COMMENT="Content/words that were typed (for typing actions)"/>
+                <FIELD NAME="typing_speed" TYPE="int" LENGTH="10" NOTNULL="false" DEFAULT="0" COMMENT="Typing speed (characters per minute)"/>
+                <FIELD NAME="session_id" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Session identifier"/>
+                <FIELD NAME="timestamp" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Unix timestamp of action"/>
+                <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="writeassistdevid,userid,phase"/>
+                <INDEX NAME="idx_action_type" UNIQUE="false" FIELDS="action_type"/>
+                <INDEX NAME="idx_timestamp" UNIQUE="false" FIELDS="timestamp"/>
+                <INDEX NAME="idx_session" UNIQUE="false" FIELDS="session_id"/>
             </INDEXES>
         </TABLE>
     </TABLES>

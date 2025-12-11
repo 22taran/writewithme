@@ -327,5 +327,147 @@ function xmldb_writeassistdev_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2025102112, 'writeassistdev');
     }
     
+    // Version 2025102113: Add status field to metadata table
+    if ($oldversion < 2025102113) {
+        $table = new xmldb_table('writeassistdev_metadata');
+        $field = new xmldb_field('status', XMLDB_TYPE_CHAR, '20', null, null, null, 'draft', 'current_tab');
+        
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102113, 'writeassistdev');
+    }
+    
+    // Version 2025102114: Add activity tracking table for writing analytics
+    if ($oldversion < 2025102114) {
+        // Create activity log table
+        $table = new xmldb_table('writeassistdev_activity_log');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('writeassistdevid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('phase', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('action_type', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('content_length', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('word_count', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('pasted_content', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('pasted_length', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('typing_speed', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('session_id', XMLDB_TYPE_CHAR, '50', null, null, null, null);
+        $table->add_field('timestamp', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('created_at', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('user_fk', XMLDB_KEY_FOREIGN, array('userid'), 'user', array('id'));
+        $table->add_key('writeassistdev_fk', XMLDB_KEY_FOREIGN, array('writeassistdevid'), 'writeassistdev', array('id'));
+        
+        $table->add_index('idx_user_activity_phase', XMLDB_INDEX_NOTUNIQUE, array('writeassistdevid', 'userid', 'phase'));
+        $table->add_index('idx_action_type', XMLDB_INDEX_NOTUNIQUE, array('action_type'));
+        $table->add_index('idx_timestamp', XMLDB_INDEX_NOTUNIQUE, array('timestamp'));
+        $table->add_index('idx_session', XMLDB_INDEX_NOTUNIQUE, array('session_id'));
+        
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102114, 'writeassistdev');
+    }
+    
+    // Version 2025102115: Ensure activity log table exists (fail-safe)
+    if ($oldversion < 2025102115) {
+        $table = new xmldb_table('writeassistdev_activity_log');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('writeassistdevid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('phase', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('action_type', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('content_length', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('word_count', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('pasted_content', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('pasted_length', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('typing_speed', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('session_id', XMLDB_TYPE_CHAR, '50', null, null, null, null);
+        $table->add_field('timestamp', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('created_at', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('user_fk', XMLDB_KEY_FOREIGN, array('userid'), 'user', array('id'));
+        $table->add_key('writeassistdev_fk', XMLDB_KEY_FOREIGN, array('writeassistdevid'), 'writeassistdev', array('id'));
+        
+        $table->add_index('idx_user_activity_phase', XMLDB_INDEX_NOTUNIQUE, array('writeassistdevid', 'userid', 'phase'));
+        $table->add_index('idx_action_type', XMLDB_INDEX_NOTUNIQUE, array('action_type'));
+        $table->add_index('idx_timestamp', XMLDB_INDEX_NOTUNIQUE, array('timestamp'));
+        $table->add_index('idx_session', XMLDB_INDEX_NOTUNIQUE, array('session_id'));
+        
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102115, 'writeassistdev');
+    }
+    
+    // Version 2025102116: Add availability fields (startdate, duedate, enddate)
+    if ($oldversion < 2025102116) {
+        $table = new xmldb_table('writeassistdev');
+        
+        $field1 = new xmldb_field('startdate', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'edit_goal');
+        $field2 = new xmldb_field('duedate', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'startdate');
+        $field3 = new xmldb_field('enddate', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'duedate');
+        
+        if (!$dbman->field_exists($table, $field1)) {
+            $dbman->add_field($table, $field1);
+        }
+        if (!$dbman->field_exists($table, $field2)) {
+            $dbman->add_field($table, $field2);
+        }
+        if (!$dbman->field_exists($table, $field3)) {
+            $dbman->add_field($table, $field3);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102116, 'writeassistdev');
+    }
+    
+    // Version 2025102117: Add custom_outline field for instructor-defined outline structure
+    if ($oldversion < 2025102117) {
+        $table = new xmldb_table('writeassistdev');
+        
+        // Check if enddate exists to determine where to place custom_outline
+        $enddateField = new xmldb_field('enddate');
+        $enddateExists = $dbman->field_exists($table, $enddateField);
+        
+        // If enddate exists, add after it; otherwise add after edit_goal or timemodified
+        $afterField = 'enddate';
+        if (!$enddateExists) {
+            // Check if edit_goal exists
+            $editGoalField = new xmldb_field('edit_goal');
+            if ($dbman->field_exists($table, $editGoalField)) {
+                $afterField = 'edit_goal';
+            } else {
+                // Fallback to timemodified which should always exist
+                $afterField = 'timemodified';
+            }
+        }
+        
+        $field = new xmldb_field('custom_outline', XMLDB_TYPE_TEXT, null, null, null, null, null, $afterField);
+        
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102117, 'writeassistdev');
+    }
+    
+    // Version 2025102118: Add typed_content field to activity_log for word-level tracking
+    if ($oldversion < 2025102118) {
+        $table = new xmldb_table('writeassistdev_activity_log');
+        $field = new xmldb_field('typed_content', XMLDB_TYPE_TEXT, null, null, null, null, null, 'pasted_content');
+        
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        
+        upgrade_mod_savepoint(true, 2025102118, 'writeassistdev');
+    }
+
     return true;
 }

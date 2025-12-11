@@ -17,9 +17,9 @@ const quillConfig = {
             ['bold', 'italic', 'underline', 'strike'],
             ['blockquote', 'code-block'],
             [{ 'header': 1 }, { 'header': 2 }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'script': 'sub'}, { 'script': 'super' }],
-            [{ 'indent': '-1'}, { 'indent': '+1' }],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            [{ 'script': 'sub' }, { 'script': 'super' }],
+            [{ 'indent': '-1' }, { 'indent': '+1' }],
             [{ 'direction': 'rtl' }],
             [{ 'size': ['8pt', '10pt', '12pt', '14pt', '16pt', '18pt', '24pt', '36pt'] }],
             [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
@@ -59,10 +59,10 @@ class DOMManager {
     // Add event listener with duplicate prevention
     addEventListener(element, event, handler, options = {}) {
         if (!element) return;
-        
+
         const key = `${element.id || 'unknown'}_${event}`;
         const handlers = this.eventListeners.get(key) || [];
-        
+
         // Only add if not already added (prevents duplicate listeners)
         if (!handlers.includes(handler)) {
             handlers.push(handler);
@@ -74,7 +74,7 @@ class DOMManager {
     removeEventListeners(element, event = null) {
         const key = event ? `${element.id || 'unknown'}_${event}` : element.id || 'unknown';
         const handlers = this.eventListeners.get(key);
-        
+
         if (handlers) {
             handlers.forEach(handler => element.removeEventListener(event, handler));
             this.eventListeners.delete(key);
@@ -103,30 +103,30 @@ class BubbleComponent {
     createBubble() {
         const bubble = createElement('div', 'idea-bubble');
         bubble.dataset.id = this.id;
-        
+
         // Add AI-generated class if applicable
         if (this.aiGenerated) {
             bubble.classList.add('ai-generated');
             bubble.dataset.aiGenerated = 'true';
         }
-        
+
         const contentDiv = createElement('div', 'bubble-content', this.content);
         const deleteBtn = createElement('button', 'delete-bubble-btn', '×');
-        
+
         // Add delete functionality
         deleteBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             this.delete();
         });
-        
+
         bubble.appendChild(contentDiv);
         bubble.appendChild(deleteBtn);
-        
+
         // Make content editable only if not AI-generated
         if (!this.aiGenerated) {
             contentDiv.contentEditable = true;
-            
+
             // Add event listener for content changes
             contentDiv.addEventListener('input', () => {
                 this.content = contentDiv.textContent;
@@ -142,7 +142,7 @@ class BubbleComponent {
             const aiLabel = createElement('span', 'ai-label', 'AI');
             contentDiv.appendChild(aiLabel);
         }
-        
+
         return bubble;
     }
 
@@ -163,7 +163,7 @@ class BubbleComponent {
         // Update internal state
         this.location = location;
         this.sectionId = sectionId;
-        
+
         // Update DOM element
         this.element.dataset.location = location;
         if (sectionId) {
@@ -200,15 +200,15 @@ class SectionComponent {
     createSection() {
         const sectionDiv = createElement('div', 'template-section');
         sectionDiv.dataset.sectionId = this.id;
-        
+
         const sectionHeader = createElement('div', 'section-header');
-        
+
         // Title with edit capability
         const sectionTitle = createElement('h4', 'section-title', this.title);
         sectionTitle.contentEditable = true;
         sectionTitle.dataset.sectionId = this.id;
         sectionTitle.setAttribute('spellcheck', 'false');
-        
+
         // Add event listeners for saving title changes
         let titleDebounceTimer = null;
         sectionTitle.addEventListener('input', () => {
@@ -217,7 +217,7 @@ class SectionComponent {
                 clearTimeout(titleDebounceTimer);
             }
         });
-        
+
         sectionTitle.addEventListener('blur', () => {
             const newTitle = sectionTitle.textContent.trim();
             if (newTitle && newTitle !== this.title) {
@@ -233,12 +233,12 @@ class SectionComponent {
                 sectionTitle.textContent = this.title;
             }
         });
-        
+
         sectionHeader.appendChild(sectionTitle);
-        
+
         // Add delete button for ALL sections (users can remove any section they don't want)
         const deleteBtn = createElement('button', 'section-delete-btn');
-        deleteBtn.innerHTML = '×';
+        deleteBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3L3 9M3 3l6 6"/></svg>';
         deleteBtn.title = this.isCustom ? 'Delete this section' : 'Remove this section from outline';
         deleteBtn.setAttribute('aria-label', 'Delete section');
         deleteBtn.dataset.sectionId = this.id;
@@ -254,26 +254,26 @@ class SectionComponent {
             this.element.dispatchEvent(event);
         });
         sectionHeader.appendChild(deleteBtn);
-        
+
         sectionDiv.appendChild(sectionHeader);
-        
+
         // Add section description if it exists
         if (this.description) {
             const sectionDescription = createElement('p', 'section-description', this.description);
             sectionDiv.appendChild(sectionDescription);
         }
-        
+
         const outlineContainer = createElement('div', 'outline-container outline-dropzone');
         outlineContainer.dataset.sectionId = this.id;
-        
+
         // Add dropzone placeholder text when empty
         outlineContainer.classList.add('empty');
         const placeholder = createElement('div', 'dropzone-placeholder', 'Drop ideas here to create outline items');
         placeholder.draggable = false;
         outlineContainer.appendChild(placeholder);
-        
+
         sectionDiv.appendChild(outlineContainer);
-        
+
         return sectionDiv;
     }
 
@@ -293,7 +293,7 @@ class SectionComponent {
         const bubble = this.element.querySelector(`[data-id="${bubbleId}"]`);
         if (bubble) {
             bubble.remove();
-            
+
             // Add placeholder back if no bubbles remain
             const outlineContainer = this.element.querySelector('.outline-container');
             if (outlineContainer && outlineContainer.children.length === 0) {
@@ -308,7 +308,7 @@ class SectionComponent {
     getBubbles() {
         const outlineContainer = this.element.querySelector('.outline-container');
         if (!outlineContainer) return [];
-        
+
         return Array.from(outlineContainer.querySelectorAll('.idea-bubble')).map(bubble => ({
             id: bubble.dataset.id,
             content: bubble.querySelector('.bubble-content').textContent,
@@ -334,9 +334,10 @@ class SectionComponent {
 // ---- Tab Management ----
 // Simple, reliable tab switching system
 class TabManager {
-    constructor(globalState) {
+    constructor(globalState, projectManager) {
         console.log('>>> TabManager constructor called - CACHE REFRESH TEST');
         this.globalState = globalState;
+        this.projectManager = projectManager;
         this.currentTab = 'plan';
         this.init();
         console.log('>>> TabManager initialized - CACHE REFRESH TEST');
@@ -346,12 +347,12 @@ class TabManager {
         // Ensure goal element is always a read-only div (not a textarea)
         // This prevents any cached JavaScript from creating a textarea
         this.ensureGoalIsReadOnly();
-        
+
         this.setupTabs();
         // Note: setupTabs() calls switchTab('plan') which already calls updateGoalForTab()
         // So no need to call it again here
     }
-    
+
     ensureGoalIsReadOnly() {
         const goalElement = document.getElementById('assignmentGoal');
         if (goalElement && goalElement.tagName !== 'DIV') {
@@ -359,18 +360,18 @@ class TabManager {
             const div = document.createElement('div');
             div.id = 'assignmentGoal';
             div.className = 'goal-field goal-field-readonly';
-            
+
             // Get goal text from instructor goals or current element value
             const currentTab = this.currentTab || 'plan';
             const instructorGoals = window.instructorGoals || {};
             const goalText = instructorGoals[currentTab] || goalElement.value || '';
-            
+
             if (goalText) {
                 div.textContent = goalText;
             } else {
                 div.innerHTML = '<em>No goal set for this phase.</em>';
             }
-            
+
             const parentNode = goalElement.parentNode;
             if (parentNode) {
                 parentNode.replaceChild(div, goalElement);
@@ -384,27 +385,32 @@ class TabManager {
         // Find all tab buttons
         const tabButtons = document.querySelectorAll('.tab-btn');
         console.log('Found', tabButtons.length, 'tab buttons');
-        
+
         // Add click listeners to each tab button
         tabButtons.forEach(button => {
             const tabId = button.getAttribute('data-tab');
             console.log('Setting up tab:', tabId, 'Button:', button);
-            
+
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log('Tab clicked:', tabId);
                 this.switchTab(tabId);
             });
         });
-        
+
+        // Restore last active tab from localStorage, or default to 'plan'
+        const savedTab = localStorage.getItem('writeassistdev_activeTab');
+        const initialTab = savedTab || 'plan';
+        console.log('Restoring tab from localStorage:', initialTab);
+
         // Set initial active tab (this will also call updateGoalForTab via switchTab)
-        this.switchTab('plan');
+        this.switchTab(initialTab);
         console.log('=== Tab setup complete ===');
     }
 
     switchTab(tabId) {
         console.log('=== Switching to tab:', tabId, '===');
-        
+
         // Remove active class from all tab buttons
         const allTabButtons = document.querySelectorAll('.tab-btn');
         console.log('Found', allTabButtons.length, 'tab buttons');
@@ -412,22 +418,22 @@ class TabManager {
             console.log('Removing active from:', btn.dataset.tab, 'Classes:', btn.classList.toString());
             btn.classList.remove('active');
         });
-        
+
         // Add active class to clicked tab button
         const activeButton = document.querySelector(`[data-tab="${tabId}"]`);
         if (activeButton) {
             activeButton.classList.add('active');
             console.log('Added active to:', tabId, 'Classes:', activeButton.classList.toString());
-            } else {
+        } else {
             console.error('Could not find button for tab:', tabId);
         }
-        
+
         // Hide all tab content
         const allTabContent = document.querySelectorAll('.tab-content');
         allTabContent.forEach(content => {
             content.classList.remove('active');
         });
-        
+
         // Show selected tab content
         const activeContent = document.getElementById(tabId);
         if (activeContent) {
@@ -438,7 +444,7 @@ class TabManager {
         document.body.className = document.body.className.replace(/activity-\w+/g, '');
         document.body.classList.add(`activity-${tabId}`);
         console.log('Updated body class to:', document.body.className);
-        
+
         // If switching to write tab, populate outline sidebar and update AI tool buttons
         if (tabId === 'write') {
             this.populateWriteOutline();
@@ -453,7 +459,7 @@ class TabManager {
                 }
             }, 100);
         }
-        
+
         // If switching to edit tab, ensure import button listener is set up
         if (tabId === 'edit') {
             setTimeout(() => {
@@ -467,34 +473,37 @@ class TabManager {
                 }
             }, 100);
         }
-        
+
         // Update goal display for the active tab
         this.updateGoalForTab(tabId);
+
+        // Save active tab to localStorage
+        localStorage.setItem('writeassistdev_activeTab', tabId);
 
         this.currentTab = tabId;
         console.log('=== Tab switch complete ===');
     }
-    
+
     updateGoalForTab(tabId) {
         // Get instructor goals from window (set by PHP)
         const instructorGoals = window.instructorGoals || {};
-        
+
         console.log('TabManager.updateGoalForTab():', {
             tabId,
             instructorGoals,
             hasGoals: !!instructorGoals[tabId]
         });
-        
+
         // Get goal element
         const goalElement = document.getElementById('assignmentGoal');
         if (!goalElement) {
             console.warn('TabManager.updateGoalForTab(): Goal element not found');
             return;
         }
-        
+
         // Get goal for current tab
         const goalText = instructorGoals[tabId] || '';
-        
+
         // Always use read-only display - goal comes from backend set by instructor
         if (goalElement.tagName === 'DIV') {
             if (goalText) {
@@ -512,36 +521,46 @@ class TabManager {
             } else {
                 div.innerHTML = '<em>No goal set for this phase.</em>';
             }
-            
+
             const parentNode = goalElement.parentNode;
             if (parentNode) {
                 parentNode.replaceChild(div, goalElement);
             }
         }
     }
-    
+
     restoreGoalFromState() {
         // No longer needed - goals are instructor-set per tab
         // This method is kept for compatibility but does nothing
     }
-    
+
     populateWriteOutline() {
         const outlineSidebar = document.getElementById('outlineSidebar');
         if (!outlineSidebar) {
             console.warn('Outline sidebar not found');
             return;
         }
-        
-        // Get plan data from global state
-        const state = this.globalState.getState();
+
+        // Get plan data from global state OR directly from project manager (fresher)
+        let state;
+        if (this.projectManager) {
+            // Collect all data to ensure we have the latest state from PlanModule
+            // This is critical because PlanModule updates its own state but might not have synced to GlobalState yet
+            state = this.projectManager.collectAllData();
+            console.log('DEBUG: populateWriteOutline - fetched fresh state from ProjectManager');
+        } else {
+            state = this.globalState.getState();
+            console.log('DEBUG: populateWriteOutline - fetched state from GlobalState');
+        }
+
         console.log('DEBUG: populateWriteOutline - state:', state);
         console.log('DEBUG: populateWriteOutline - plan.ideas:', state?.plan?.ideas);
-        
+
         if (!state || !state.plan || !state.plan.ideas) {
             console.warn('No plan data available');
             return;
         }
-        
+
         // Convert ideas to array if it's an object (like chatHistory)
         let ideasArray;
         if (Array.isArray(state.plan.ideas)) {
@@ -553,13 +572,15 @@ class TabManager {
             console.warn('Invalid ideas format:', typeof state.plan.ideas);
             return;
         }
-        
+
+
         // Clear existing outline
         outlineSidebar.innerHTML = '<h3>My Outline</h3>';
-        
+
         // Get available sections to check if we should show the insert template button
         let sections = this.getOutlineSections(state);
-        
+
+
         // Add button to insert outline template into editor (only if sections exist)
         if (sections && sections.length > 0) {
             const insertTemplateBtn = document.createElement('button');
@@ -573,14 +594,14 @@ class TabManager {
             });
             outlineSidebar.appendChild(insertTemplateBtn);
         }
-        
+
         // Filter bubbles that are in outline
-        const outlineBubbles = ideasArray.filter(bubble => 
+        const outlineBubbles = ideasArray.filter(bubble =>
             bubble.location === 'outline' && bubble.sectionId
         );
-        
+
         console.log('DEBUG: outlineBubbles found:', outlineBubbles.length, outlineBubbles);
-        
+
         if (outlineBubbles.length === 0) {
             const noOutline = document.createElement('p');
             noOutline.textContent = 'No outline items yet. Go back to Plan & Organize to add ideas to your outline.';
@@ -590,62 +611,64 @@ class TabManager {
             outlineSidebar.appendChild(noOutline);
             return;
         }
-        
+
         // Group bubbles by section
         const sectionsMap = new Map();
-        
+
         // Use sections we already got above (or get them if not available)
         if (!sections || sections.length === 0) {
             sections = this.getOutlineSections(state);
         }
-        
+
+
+
         sections.forEach(section => {
             sectionsMap.set(section.id, {
                 title: section.title,
                 bubbles: []
             });
         });
-        
+
         // Add bubbles to their sections
         outlineBubbles.forEach(bubble => {
             if (bubble.sectionId && sectionsMap.has(bubble.sectionId)) {
                 sectionsMap.get(bubble.sectionId).bubbles.push(bubble);
             }
         });
-        
+
         // Create outline display
         sectionsMap.forEach((sectionData, sectionId) => {
             if (sectionData.bubbles.length > 0) {
                 const sectionDiv = document.createElement('div');
                 // Margin handled by CSS now
-                
+
                 const sectionTitle = document.createElement('h4');
                 sectionTitle.textContent = sectionData.title;
                 // Styles handled by CSS
                 sectionDiv.appendChild(sectionTitle);
-                
+
                 const bubbleList = document.createElement('ul');
                 // Styles handled by CSS
-                
+
                 sectionData.bubbles.forEach(bubble => {
                     const bubbleItem = document.createElement('li');
                     // Truncate long content for better space usage
                     const maxLength = 80;
                     const content = bubble.content.trim();
-                    bubbleItem.textContent = content.length > maxLength 
-                        ? content.substring(0, maxLength) + '...' 
+                    bubbleItem.textContent = content.length > maxLength
+                        ? content.substring(0, maxLength) + '...'
                         : content;
                     bubbleItem.title = content; // Show full text on hover
                     // Styles handled by CSS
                     bubbleList.appendChild(bubbleItem);
                 });
-                
+
                 sectionDiv.appendChild(bubbleList);
                 outlineSidebar.appendChild(sectionDiv);
             }
         });
     }
-    
+
     getOutlineSections(state) {
         // If we have sections from plan module, use those
         if (window.aiWritingAssistant && window.aiWritingAssistant.modules.plan) {
@@ -662,12 +685,12 @@ class TabManager {
                 return sections;
             }
         }
-        
+
         // Otherwise, use template data
         if (window.templateData && window.templateData.sections) {
             return window.templateData.sections;
         }
-        
+
         // Default sections as fallback
         return [
             { id: 'introduction', title: 'Introduction' },
@@ -692,12 +715,12 @@ class ChatManager {
             sendButton: document.getElementById('sendMessage'),
             regenerateGlobalBtn: document.getElementById('regenerateGlobalBtn')
         };
-        
+
         // Check if elements were found
         if (!this.elements.chatMessages || !this.elements.userInput || !this.elements.sendButton) {
             console.warn('ChatManager: Some required elements not found');
         }
-        
+
         this.init();
     }
 
@@ -719,7 +742,7 @@ class ChatManager {
             // Only add new messages instead of clearing and re-rendering everything
             if (state.chatHistory.length > this.messages.length) {
                 console.log('ChatManager: Adding new messages, current:', this.messages.length, 'total:', state.chatHistory.length);
-                
+
                 // Add only the new messages
                 for (let i = this.messages.length; i < state.chatHistory.length; i++) {
                     const msg = state.chatHistory[i];
@@ -733,12 +756,12 @@ class ChatManager {
     setupEventListeners() {
         // Remove existing listeners first to prevent duplicates
         this.removeEventListeners();
-        
+
         if (this.elements.sendButton) {
             this.sendButtonHandler = () => this.sendMessage();
             this.elements.sendButton.addEventListener('click', this.sendButtonHandler);
         }
-        
+
         if (this.elements.userInput) {
             this.userInputHandler = (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -759,11 +782,11 @@ class ChatManager {
         if (this.elements.sendButton && this.sendButtonHandler) {
             this.elements.sendButton.removeEventListener('click', this.sendButtonHandler);
         }
-        
+
         if (this.elements.userInput && this.userInputHandler) {
             this.elements.userInput.removeEventListener('keypress', this.userInputHandler);
         }
-        
+
         if (this.elements.regenerateGlobalBtn && this.regenerateButtonHandler) {
             this.elements.regenerateGlobalBtn.removeEventListener('click', this.regenerateButtonHandler);
         }
@@ -780,10 +803,30 @@ class ChatManager {
             console.error('ChatManager: chatMessages element not found, cannot render message');
             return;
         }
-        
+
         const messageDiv = createElement('div', `message ${message.role}`);
-        const messageContent = createElement('div', 'message-content', message.content);
-        
+        const messageContent = createElement('div', 'message-content');
+
+        // Render markdown if libraries are available
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            try {
+                // Configure marked to handle line breaks correctly
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+                const rawHtml = marked.parse(message.content);
+                const cleanHtml = DOMPurify.sanitize(rawHtml);
+                messageContent.innerHTML = cleanHtml;
+                messageContent.classList.add('markdown-rendered');
+            } catch (e) {
+                console.error('ChatManager: Error parsing markdown:', e);
+                messageContent.textContent = message.content;
+            }
+        } else {
+            messageContent.textContent = message.content;
+        }
+
         messageDiv.appendChild(messageContent);
         this.elements.chatMessages.appendChild(messageDiv);
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
@@ -791,15 +834,15 @@ class ChatManager {
 
     sendMessage() {
         if (!this.elements.userInput) return;
-        
+
         const message = this.elements.userInput.value.trim();
         if (!message) return;
-        
+
         console.log('ChatManager: Sending message:', message);
-        
+
         // Don't add message directly - let the global state system handle it
         this.elements.userInput.value = '';
-        
+
         // Emit custom event for message sent
         document.dispatchEvent(new CustomEvent('messageSent', {
             detail: { message, role: 'user' }
@@ -809,18 +852,18 @@ class ChatManager {
 
     regenerateLastMessage() {
         if (this.messages.length < 2) return;
-        
+
         const last = this.messages[this.messages.length - 1];
         const prev = this.messages[this.messages.length - 2];
-        
+
         if (last.role !== 'assistant' || prev.role !== 'user') return;
-        
+
         // Remove last AI message
         this.messages.pop();
         if (this.elements.chatMessages.lastChild) {
             this.elements.chatMessages.removeChild(this.elements.chatMessages.lastChild);
         }
-        
+
         // Emit custom event for regeneration
         document.dispatchEvent(new CustomEvent('regenerateRequested', {
             detail: { message: prev.content }
@@ -829,7 +872,7 @@ class ChatManager {
 
     updateRegenerateButton() {
         if (!this.elements.regenerateGlobalBtn) return;
-        
+
         const last = this.messages[this.messages.length - 1];
         this.elements.regenerateGlobalBtn.disabled = !(last && last.role === 'assistant');
     }
@@ -840,7 +883,7 @@ class ChatManager {
             console.warn('ChatManager: Reinitializing elements as chatMessages was not found');
             this.elements.chatMessages = document.getElementById('chatMessages');
         }
-        
+
         // Clear existing messages without triggering clear event
         this.messages = [];
         if (this.elements.chatMessages) {
@@ -850,7 +893,7 @@ class ChatManager {
             return; // Don't try to load messages if we can't render them
         }
         this.updateRegenerateButton();
-        
+
         // Load new messages
         if (messages && Array.isArray(messages)) {
             messages.forEach((msg, index) => {
@@ -870,7 +913,7 @@ class ChatManager {
         const chatData = {
             chatHistory: this.getMessages()
         };
-        
+
         return chatData;
     }
 }

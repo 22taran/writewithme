@@ -67,10 +67,15 @@ class WritingAgent:
 - Suggest when ready to write
 
 **Response style:**
-- Be concise (1-2 sentences max)
+- Use structured format with numbered lists when providing multiple items (1. **Item** - explanation)
+- Use **bold** formatting for emphasis on key terms, phrases, or important points
+- When including examples, use "**Example:**" or "Example:" in plain text (NOT as a heading with ###)
+- Do NOT use markdown headings (###, ##, #) - use plain text with bold formatting instead
+- Be concise but clear
 - Use casual, friendly tone
 - Ask direct questions
 - Give quick suggestions
+- Include examples when helpful
 
 **When to suggest moving to Write phase:**
 - Clear outline exists
@@ -90,10 +95,15 @@ class WritingAgent:
 - Encourage progress
 
 **Response style:**
-- Be concise (1-2 sentences max)
+- Use structured format with numbered lists when providing multiple items (1. **Item** - explanation)
+- Use **bold** formatting for emphasis on key terms, phrases, transition words, or important points
+- When including examples, use "**Example:**" or "Example:" in plain text (NOT as a heading with ###)
+- Do NOT use markdown headings (###, ##, #) - use plain text with bold formatting instead
+- Be concise but clear
 - Use casual, friendly tone
 - Give quick writing tips
 - Stay encouraging
+- Include examples when helpful
 
 **When to suggest moving to Edit phase:**
 - First draft complete
@@ -113,10 +123,15 @@ class WritingAgent:
 - Polish writing
 
 **Response style:**
-- Be concise (1-2 sentences max)
+- Use structured format with numbered lists when providing multiple items (1. **Item** - explanation)
+- Use **bold** formatting for emphasis on key terms, phrases, or important points
+- When including examples, use "**Example:**" or "Example:" in plain text (NOT as a heading with ###)
+- Do NOT use markdown headings (###, ##, #) - use plain text with bold formatting instead
+- Be concise but clear
 - Use casual, friendly tone
 - Give specific feedback
 - Stay constructive
+- Include examples when helpful
 
 **When work is complete:**
 - Content clear and organized
@@ -289,7 +304,7 @@ class WritingAgent:
             # Prepare input with full context and response style instruction
             full_input = f"""Full Project State:\n{project_context}\n\nUser Message: {user_input}
 
-IMPORTANT: Keep your response concise and conversational (1-2 sentences max). Use a casual, friendly tone like you're texting a friend."""
+IMPORTANT: When providing lists or multiple items, use numbered format (1. **Item** - explanation). Use **bold** formatting for emphasis on key terms, phrases, or important points. When including examples, use "**Example:**" in plain text (NOT as a heading with ###). Do NOT use markdown headings (###, ##, #). Keep responses concise and conversational. Use a casual, friendly tone like you're texting a friend."""
             
             # Get the appropriate agent
             agent = self.agents[current_phase]

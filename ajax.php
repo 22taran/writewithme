@@ -131,6 +131,7 @@ try {
                 $success = writeassistdev_save_project_normalized($writeassistdev->id, $USER->id, $decoded);
                 
                 // If normalized save fails, fall back to old method
+                // If normalized save fails, fall back to old method
                 if (!$success) {
                     error_log('ajax.php: Normalized save failed, falling back to old method');
                     $success = writeassistdev_save_project($writeassistdev->id, $USER->id, $projectdata);
@@ -141,7 +142,14 @@ try {
                     echo json_encode(['success' => false, 'error' => 'Save operation returned false']);
                 } else {
                     error_log('ajax.php: Save project SUCCESS');
-                    echo json_encode(['success' => true]);
+                    
+                    // Check if we have ID mappings to return (from normalized save)
+                    $response = ['success' => true];
+                    if (is_array($success) && isset($success['ideaMappings'])) {
+                        $response['ideaMappings'] = $success['ideaMappings'];
+                    }
+                    
+                    echo json_encode($response);
                 }
                 exit; // Ensure response is sent
             } catch (Exception $e) {
@@ -455,6 +463,54 @@ try {
                 error_log('ajax.php: save_instructor_goal trace: ' . $e->getTraceAsString());
                 echo json_encode(['success' => false, 'error' => 'Error writing to database: ' . $e->getMessage()]);
             }
+            break;
+            
+        case 'submit_project':
+            $mgr = new \mod_writeassistdev\data\ProjectDataManager();
+            $result = $mgr->submitProject($writeassistdev->id, $USER->id);
+            echo json_encode(['success' => $result]);
+            break;
+            
+        case 'log_activity':
+            $activities = optional_param('activities', null, PARAM_RAW);
+            if ($activities === null) {
+                echo json_encode(['success' => false, 'error' => 'Missing activities parameter']);
+                break;
+            }
+            
+            $activities = json_decode($activities, true);
+            if (!is_array($activities)) {
+                echo json_encode(['success' => false, 'error' => 'Invalid activities format']);
+                break;
+            }
+            
+            // Save each activity
+            $saved = 0;
+            foreach ($activities as $activity) {
+                try {
+                    $record = new stdClass();
+                    $record->writeassistdevid = $writeassistdev->id;
+                    $record->userid = $USER->id;
+                    $record->phase = $activity['phase'] ?? 'write';
+                    $record->action_type = $activity['action_type'] ?? 'unknown';
+                    $record->content_length = isset($activity['content_length']) ? (int)$activity['content_length'] : 0;
+                    $record->word_count = isset($activity['word_count']) ? (int)$activity['word_count'] : 0;
+                    $record->pasted_content = isset($activity['pasted_content']) ? substr($activity['pasted_content'], 0, 500) : null;
+                    $record->pasted_length = isset($activity['pasted_length']) ? (int)$activity['pasted_length'] : 0;
+                    $record->typed_content = isset($activity['typed_content']) ? substr($activity['typed_content'], 0, 500) : null;
+                    $record->typing_speed = isset($activity['typing_speed']) ? (int)$activity['typing_speed'] : 0;
+                    $record->session_id = $activity['session_id'] ?? null;
+                    $record->timestamp = isset($activity['timestamp']) ? (int)$activity['timestamp'] : time();
+                    $record->created_at = isset($activity['created_at']) ? (int)$activity['created_at'] : time();
+                    
+                    $DB->insert_record('writeassistdev_activity_log', $record);
+                    $saved++;
+                } catch (Exception $e) {
+                    error_log('Failed to save activity log: ' . $e->getMessage());
+                }
+            }
+            
+            echo json_encode(['success' => true, 'saved' => $saved, 'total' => count($activities)]);
             break;
             
         default:

@@ -95,6 +95,8 @@ $PAGE->requires->css($cssQuillUrl);
 // Load external JavaScript libraries
 $PAGE->requires->js(new moodle_url('https://cdn.quilljs.com/1.3.7/quill.min.js'), true);
 $PAGE->requires->js(new moodle_url('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js'), true);
+$PAGE->requires->js(new moodle_url('https://cdn.jsdelivr.net/npm/marked/marked.min.js'), true);
+$PAGE->requires->js(new moodle_url('https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js'), true);
 
 // Log the view event
 $event = \mod_writeassistdev\event\course_module_viewed::create([
@@ -116,22 +118,6 @@ echo $OUTPUT->header();
         <div class="chat-header">
             <h2><?php echo get_string('ai_writing_assistant', 'mod_writeassistdev'); ?></h2>
             <div class="chat-controls">
-                <div class="chat-tabs">
-                    <div class="chat-tab active" data-chat-id="chat-1">
-                        <span class="chat-tab-title">New Chat</span>
-                        <button class="chat-tab-close" data-chat-id="chat-1" title="Close chat" aria-label="Close chat">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
-                                <path d="M9 3L3 9M3 3l6 6" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <button class="new-chat-btn" id="newChatBtn" title="New Chat" aria-label="New Chat">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-                            <path d="M8 3v10M3 8h10" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                        <span class="new-chat-text">New</span>
-                    </button>
-                </div>
                 <button id="clearChatBtn" class="clear-chat-btn" title="<?php echo get_string('clear_chat', 'mod_writeassistdev'); ?>">
                     <?php echo get_string('clear_chat', 'mod_writeassistdev'); ?>
                 </button>
@@ -156,15 +142,24 @@ echo $OUTPUT->header();
             <button class="tab-btn" data-tab="write"><?php echo get_string('write', 'mod_writeassistdev'); ?></button>
             <button class="tab-btn" data-tab="edit"><?php echo get_string('edit_revise', 'mod_writeassistdev'); ?></button>
             <div class="action-buttons">
+                <?php if ($canEditGoals): ?>
+                    <a href="<?php echo new moodle_url('/mod/writeassistdev/submissions.php', ['id' => $cm->id]); ?>" class="action-btn" title="View Student Submissions" style="text-decoration: none; color: inherit; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        Submissions
+                    </a>
+                <?php endif; ?>
                 <button class="action-btn version-history-btn" id="versionHistoryBtn" title="Version History">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                         <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12z"/>
                         <path d="M8 4v4l3 2" stroke-linecap="round"/>
                     </svg>
                 </button>
-                <button class="action-btn save-btn" id="saveBtn">Save</button>
-                <button class="action-btn save-exit-btn" id="saveExitBtn">Save & Exit</button>
-                <button class="action-btn exit-btn" id="exitBtn">Exit</button>
+                <button class="action-btn save-exit-btn" id="saveExitBtn">Save &amp; Exit</button>
             </div>
         </div>
         <!-- Goal Section - Visible on all tabs, shows different goal per tab -->
@@ -265,6 +260,23 @@ echo $OUTPUT->header();
                                 </svg>
                                 <span>AI Review</span>
                             </button>
+                            <div style="margin-left: auto; display: flex; gap: 8px;">
+                                <button id="exportWorkBtn" class="export-work-btn" title="Export your work">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    <span>Export</span>
+                                </button>
+                                <button id="submitAssignmentBtn" class="submit-assignment-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                    </svg>
+                                    <span>Submit Assignment</span>
+                                </button>
+                            </div>
                         </div>
                         <div id="editToolbar"></div>
                     </div>
@@ -288,7 +300,16 @@ echo $OUTPUT->header();
 </div>
 
 <!-- Load minified JavaScript bundle -->
-<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/writeassistdev.min.js?v=<?php echo $jsMainCacheBuster; ?>"></script>
+<!-- Load minified JavaScript bundle -->
+<!-- <script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/writeassistdev.min.js?v=<?php echo $jsMainCacheBuster; ?>"></script> -->
+
+<!-- Load individual scripts for development -->
+<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/utils.js?v=<?php echo $jsUtilsCacheBuster; ?>"></script>
+<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/api.js?v=<?php echo $jsApiCacheBuster; ?>"></script>
+<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/dom.js?v=<?php echo $jsDomCacheBuster; ?>"></script>
+<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/complete-chat.js?v=<?php echo $jsMainCacheBuster; ?>"></script>
+<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/activity-tracker.js?v=<?php echo $jsMainCacheBuster; ?>"></script>
+<script src="<?php echo $CFG->wwwroot; ?>/mod/writeassistdev/scripts/main.js?v=<?php echo $jsMainCacheBuster; ?>"></script>
 
 <script>
 // Pass the instructor-selected template to the JavaScript modules
@@ -304,6 +325,18 @@ window.instructorGoals = {
 };
 window.canEditGoals = <?php echo $canEditGoals ? 'true' : 'false'; ?>;
 window.writeassistdevId = <?php echo $instance->id; ?>;
+window.userId = <?php echo $USER->id; ?>;
+window.cmid = <?php echo $cm->id; ?>;
+
+<?php
+// Get submission status
+$metadata = $DB->get_record('writeassistdev_metadata', [
+    'writeassistdevid' => $instance->id,
+    'userid' => $USER->id
+]);
+$submissionStatus = $metadata ? ($metadata->status ?? 'draft') : 'draft';
+?>
+window.submissionStatus = <?php echo json_encode($submissionStatus); ?>;
 
 // Load template data directly from PHP to avoid HTTP 404 issues
 window.templateData = <?php 

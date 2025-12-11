@@ -8,36 +8,32 @@ class ChatTabManager {
         this.chats = new Map(); // Store chat instances by ID
         this.currentChatId = 'chat-1';
         this.chatCounter = 1;
-        
+
         this.elements = {
             chatTabs: document.querySelector('.chat-tabs'),
-            newChatBtn: document.getElementById('newChatBtn'),
             chatContent: document.querySelector('.chat-content'),
             clearChatBtn: document.getElementById('clearChatBtn')
         };
-        
+
         this.init();
     }
-    
+
     init() {
         // Initialize with existing chat-1
         this.currentChatId = 'chat-1';
-        
+
         // Setup event listeners
         this.setupEventListeners();
-        
+
         // Delay the initial switch to ensure DOM is ready
         setTimeout(() => {
             this.switchToChat('chat-1');
         }, 100);
     }
-    
+
     setupEventListeners() {
-        // New chat button
-        if (this.elements.newChatBtn) {
-            this.elements.newChatBtn.addEventListener('click', () => this.createNewChat());
-        }
-        
+
+
         // Chat tab clicks
         if (this.elements.chatTabs) {
             this.elements.chatTabs.addEventListener('click', (e) => {
@@ -50,22 +46,22 @@ class ChatTabManager {
                 }
             });
         }
-        
+
         // Clear chat button
         if (this.elements.clearChatBtn) {
             this.elements.clearChatBtn.addEventListener('click', () => this.clearCurrentChat());
         }
     }
-    
+
     createNewChat() {
         this.chatCounter++;
         const chatId = `chat-${this.chatCounter}`;
         const chatTitle = `Chat ${this.chatCounter}`;
-        
+
         this.createChat(chatId, chatTitle);
         this.switchToChat(chatId);
     }
-    
+
     createChat(chatId, title) {
         // For chat-1, use existing elements
         if (chatId === 'chat-1') {
@@ -73,14 +69,14 @@ class ChatTabManager {
                 id: chatId,
                 title: title,
                 messages: new Map(),
-                tab: document.querySelector(`[data-chat-id="${chatId}"]`),
+                tab: null, // No tab element
                 messagesContainer: document.getElementById('chatMessages')
             };
-            
+
             this.chats.set(chatId, chatInstance);
             return chatInstance;
         }
-        
+
         // For new chats, create new elements
         const chatTab = document.createElement('div');
         chatTab.className = 'chat-tab';
@@ -93,19 +89,19 @@ class ChatTabManager {
                 </svg>
             </button>
         `;
-        
+
         // Insert before new chat button
         this.elements.chatTabs.insertBefore(chatTab, this.elements.newChatBtn);
-        
+
         // Create chat messages container
         const chatMessages = document.createElement('div');
         chatMessages.className = 'chat-messages';
         chatMessages.id = `chatMessages-${chatId}`;
         chatMessages.dataset.chatId = chatId;
-        
+
         // Insert into chat content
         this.elements.chatContent.insertBefore(chatMessages, this.elements.chatContent.querySelector('.chat-actions-row'));
-        
+
         // Create chat instance
         const chatInstance = {
             id: chatId,
@@ -114,12 +110,12 @@ class ChatTabManager {
             tab: chatTab,
             messagesContainer: chatMessages
         };
-        
+
         this.chats.set(chatId, chatInstance);
-        
+
         return chatInstance;
     }
-    
+
     switchToChat(chatId) {
         if (!this.chats.has(chatId)) {
             // If chat doesn't exist, create it (for chat-1)
@@ -129,66 +125,70 @@ class ChatTabManager {
                 return;
             }
         }
-        
-        // Update active tab
-        document.querySelectorAll('.chat-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        const activeTab = document.querySelector(`[data-chat-id="${chatId}"]`);
-        if (activeTab) {
-            activeTab.classList.add('active');
+
+        // Update active tab (if tabs exist)
+        if (this.elements.chatTabs) {
+            document.querySelectorAll('.chat-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            const activeTab = document.querySelector(`[data-chat-id="${chatId}"]`);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
         }
-        
+
         // Update active messages container
         document.querySelectorAll('.chat-messages').forEach(container => {
             container.classList.remove('active');
         });
-        
-        const messagesContainer = chatId === 'chat-1' 
+
+        const messagesContainer = chatId === 'chat-1'
             ? document.getElementById('chatMessages')
             : document.getElementById(`chatMessages-${chatId}`);
-            
+
         if (messagesContainer) {
             messagesContainer.classList.add('active');
         }
-        
+
         // Update current chat ID
         this.currentChatId = chatId;
-        
+
         // Update chat system reference - with null checks
         if (this.chatSystem) {
             this.chatSystem.currentChatId = chatId;
             this.chatSystem.messages = this.chats.get(chatId).messages;
-            
+
             // Only update elements if they exist
             if (this.chatSystem.elements) {
                 this.chatSystem.elements.chatMessages = messagesContainer;
             }
         }
-        
+
         console.log(`Switched to chat: ${chatId}`);
     }
-    
+
     deleteChat(chatId) {
         if (!this.chats.has(chatId)) return;
-        
+
         // Don't delete if it's the only chat
         if (this.chats.size <= 1) {
             console.log('Cannot delete the last chat');
             return;
         }
-        
+
         const chat = this.chats.get(chatId);
-        
-        // Remove tab
-        chat.tab.remove();
-        
+
+        // Remove tab if it exists
+        if (chat.tab) {
+            chat.tab.remove();
+        }
+
         // Remove messages container
         chat.messagesContainer.remove();
-        
+
         // Remove from chats map
         this.chats.delete(chatId);
-        
+
         // If we deleted the current chat, switch to another one
         if (this.currentChatId === chatId) {
             const remainingChats = Array.from(this.chats.keys());
@@ -196,10 +196,10 @@ class ChatTabManager {
                 this.switchToChat(remainingChats[0]);
             }
         }
-        
+
         console.log(`Deleted chat: ${chatId}`);
     }
-    
+
     clearCurrentChat() {
         const currentChat = this.chats.get(this.currentChatId);
         if (currentChat) {
@@ -209,14 +209,16 @@ class ChatTabManager {
             console.log(`Cleared chat: ${this.currentChatId}`);
         }
     }
-    
+
     updateChatTitle(chatId, newTitle) {
         const chat = this.chats.get(chatId);
         if (chat) {
             chat.title = newTitle;
-            const titleElement = chat.tab.querySelector('.chat-tab-title');
-            if (titleElement) {
-                titleElement.textContent = newTitle;
+            if (chat.tab) {
+                const titleElement = chat.tab.querySelector('.chat-tab-title');
+                if (titleElement) {
+                    titleElement.textContent = newTitle;
+                }
             }
         }
     }
@@ -238,7 +240,7 @@ class CompleteChatSystem {
         this.messageQueue = [];
         this.retryCount = 0;
         this.maxRetries = 3;
-        
+
         // Lazy loading state
         this.chatHistoryLoaded = false;
         this.isLoadingHistory = false;
@@ -273,20 +275,20 @@ class CompleteChatSystem {
                 }
             } else if (typeof ts === 'number') {
                 // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000 
-                    ? new Date(ts * 1000).toISOString() 
+                ts = ts < 10000000000
+                    ? new Date(ts * 1000).toISOString()
                     : new Date(ts).toISOString();
             } else {
                 ts = new Date().toISOString();
             }
             return `${m.role}|${ts}|${m.content}`;
         };
-        
+
         // Initialize tab manager after elements are set up
         setTimeout(() => {
             this.tabManager = new ChatTabManager(this);
         }, 200);
-        
+
         // DOM elements
         this.elements = {
             chatMessages: document.getElementById('chatMessages'),
@@ -295,11 +297,11 @@ class CompleteChatSystem {
             clearChatButton: document.getElementById('clearChatBtn'),
             typingIndicator: null
         };
-        
-        
+
+
         // Create typing indicator if it doesn't exist
         this.createTypingIndicator();
-        
+
         // Delay initialization to ensure DOM is ready
         setTimeout(() => {
             this.init();
@@ -311,22 +313,22 @@ class CompleteChatSystem {
             console.warn('CompleteChatSystem: Already initialized');
             return;
         }
-        
-        
-        
+
+
+
         if (!this.elements.chatMessages) {
             console.error('CompleteChatSystem: chatMessages element not found!');
             return;
         }
-        
+
         // Setup event listeners immediately for responsive UI
         this.setupEventListeners();
         this.subscribeToGlobalState();
         this.setupAutoSave();
-        
+
         // Load chat history asynchronously (non-blocking)
         this.loadChatHistory();
-        
+
         this.isInitialized = true;
     }
 
@@ -339,38 +341,38 @@ class CompleteChatSystem {
     }
 
     // === MESSAGE MANAGEMENT ===
-    
+
     async sendMessage(content) {
         if (!content || !content.trim()) return;
         if (this.isProcessing) {
             this.messageQueue.push(content);
             return;
         }
-        
+
         this.isProcessing = true;
         this.disableInput(true);
-        
+
         try {
             // Add user message
             const userMessage = this.createMessage('user', content.trim());
             await this.addMessage(userMessage);
-            
+
             // Show typing indicator
             this.showTypingIndicator();
-            
+
             // Get AI response
             const aiResponse = await this.getAIResponse(content);
-            
+
             // Hide typing indicator
             this.hideTypingIndicator();
-            
+
             // Add AI response
             const assistantMessage = this.createMessage('assistant', aiResponse);
             await this.addMessage(assistantMessage);
-            
+
             // Process queued messages
             this.processMessageQueue();
-            
+
         } catch (error) {
             console.error('CompleteChatSystem: Error sending message:', error);
             this.hideTypingIndicator();
@@ -385,7 +387,7 @@ class CompleteChatSystem {
         try {
             const currentProject = this.globalState.getState();
             const response = await this.api.sendChatMessage(userMessage, currentProject);
-            
+
             if (response && response.assistantReply) {
                 return response.assistantReply;
             } else {
@@ -405,12 +407,12 @@ class CompleteChatSystem {
     }
 
     // === MESSAGE CREATION AND STORAGE ===
-    
+
     createMessage(role, content, metadata = {}) {
         // Use ISO string for TIMESTAMP/TIMESTAMPTZ compatibility
         const timestamp = new Date().toISOString();
         const id = `${role}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
+
         return {
             id,
             role,
@@ -426,19 +428,19 @@ class CompleteChatSystem {
 
     async addMessage(message) {
         console.log('CHAT DEBUG: addMessage called with:', message);
-        
+
         // Validate message
         if (!this.validateMessage(message)) {
             console.warn('CompleteChatSystem: Invalid message:', message);
             return false;
         }
-        
+
         // Check for duplicates (by id and by content+timestamp+role)
         if (this.isDuplicate(message)) {
             console.log('CHAT DEBUG: Duplicate message detected, skipping');
             return false;
         }
-        
+
         // Strong-key dedupe guard
         const key = this.makeMessageKey(message);
         if (this.messageKeys.has(key)) {
@@ -448,38 +450,28 @@ class CompleteChatSystem {
 
         // Add to local storage
         this.messages.set(message.id, message);
-        
+
         // Render in UI
         this.renderMessage(message);
-        
-        // Try parsing AI response for ideas
-        if (message.role === 'assistant') {
-            console.log('IDEAS DEBUG: Parsing AI response for ideas:', message.content);
-            const ideas = this.parseIdeasFromResponse(message.content);
-            if (ideas.length > 0) {
-                console.log('IDEAS DEBUG: Extracted ideas from parsing:', ideas);
-                await this.addIdeasToBrainstorm(ideas);
-            }
-        }
-        
+
         // Update global state
         await this.updateGlobalState();
-        
+
         // Only save to database if this is a NEW message (not loaded from history)
         if (message.metadata?.status !== 'loaded') {
             await this.saveToDatabase(message);
         }
-        
+
         return true;
     }
 
     validateMessage(message) {
-        return message && 
-               message.id && 
-               message.role && 
-               message.content && 
-               message.timestamp &&
-               ['user', 'assistant'].includes(message.role);
+        return message &&
+            message.id &&
+            message.role &&
+            message.content &&
+            message.timestamp &&
+            ['user', 'assistant'].includes(message.role);
     }
 
     isDuplicate(message) {
@@ -487,7 +479,7 @@ class CompleteChatSystem {
         if (this.messages.has(message.id)) {
             return true;
         }
-        
+
         // Check by content within last 5 seconds
         // Normalize timestamps to milliseconds for comparison
         const normalizeTimestamp = (ts) => {
@@ -500,55 +492,75 @@ class CompleteChatSystem {
             }
             return Date.now();
         };
-        
+
         const messageTime = normalizeTimestamp(message.timestamp);
         const now = Date.now();
-        
+
         const recentMessages = Array.from(this.messages.values())
             .filter(msg => {
                 if (msg.role !== message.role) return false;
                 const msgTime = normalizeTimestamp(msg.timestamp);
                 return (now - msgTime) < 5000; // Within last 5 seconds
             });
-        
+
         return recentMessages.some(msg => msg.content === message.content);
     }
 
     // === UI MANAGEMENT ===
-    
+
     renderMessage(message, prepend = false) {
-        
+
         if (!this.elements.chatMessages) {
             console.error('CompleteChatSystem: Chat messages container not found');
             return;
         }
-        
-        
+
+
         // Check if already rendered
         const existingElement = this.elements.chatMessages.querySelector(`[data-message-id="${message.id}"]`);
         if (existingElement) {
             return;
         }
-        
+
         const messageElement = this.createMessageElement(message);
-        
+
         if (prepend) {
             this.elements.chatMessages.insertBefore(messageElement, this.elements.chatMessages.firstChild);
         } else {
             this.elements.chatMessages.appendChild(messageElement);
             this.scrollToBottom();
         }
-        
+
     }
 
     createMessageElement(message) {
-        
+
         const messageDiv = createElement('div', `message ${message.role}`);
         messageDiv.setAttribute('data-message-id', message.id);
-        
-        
-        const contentDiv = createElement('div', 'message-content', message.content);
-        
+
+
+        const contentDiv = createElement('div', 'message-content');
+
+        // Render markdown if libraries are available
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            try {
+                // Configure marked to handle line breaks correctly
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+                const rawHtml = marked.parse(message.content);
+                const cleanHtml = DOMPurify.sanitize(rawHtml);
+                contentDiv.innerHTML = cleanHtml;
+                contentDiv.classList.add('markdown-rendered');
+            } catch (e) {
+                console.error('CompleteChatSystem: Error parsing markdown:', e);
+                contentDiv.textContent = message.content;
+            }
+        } else {
+            contentDiv.textContent = message.content;
+        }
+
         // Ensure we have a valid timestamp for display
         // Convert Unix seconds to ISO string only for display
         let displayTime = message.timestamp;
@@ -562,11 +574,11 @@ class CompleteChatSystem {
             displayTime = new Date().toISOString();
         }
         const timeDiv = createElement('div', 'message-time', this.formatTime(displayTime));
-        
+
         messageDiv.appendChild(contentDiv);
         messageDiv.appendChild(timeDiv);
-        
-        
+
+
         // Add action buttons for assistant messages
         if (message.role === 'assistant') {
             const actionsDiv = createElement('div', 'message-actions');
@@ -575,15 +587,15 @@ class CompleteChatSystem {
             regenerateBtn.addEventListener('click', () => this.regenerateMessage(message));
             actionsDiv.appendChild(regenerateBtn);
             messageDiv.appendChild(actionsDiv);
-            
+
         }
-        
+
         return messageDiv;
     }
 
     createTypingIndicator() {
         if (!this.elements.chatMessages) return;
-        
+
         this.elements.typingIndicator = createElement('div', 'typing-indicator');
         this.elements.typingIndicator.innerHTML = `
             <div class="typing-dots">
@@ -619,7 +631,7 @@ class CompleteChatSystem {
     formatTime(timestamp) {
         // Handle different timestamp formats
         let date;
-        
+
         if (typeof timestamp === 'string') {
             // Check if it's MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
             if (timestamp.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
@@ -645,20 +657,20 @@ class CompleteChatSystem {
             // Fallback to current time
             date = new Date();
         }
-        
+
         // Check if date is valid
         if (isNaN(date.getTime())) {
             console.warn('CompleteChatSystem: Invalid timestamp:', timestamp);
             return 'Invalid time';
         }
-        
+
         // Use toLocaleTimeString which will display in user's local timezone
         // The date object is already in UTC, so this will convert to local time automatically
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     // === EVENT HANDLING ===
-    
+
     setupEventListeners() {
         // Send button
         if (this.elements.sendButton) {
@@ -672,13 +684,13 @@ class CompleteChatSystem {
                 }
             };
             this.elements.sendButton.addEventListener('click', this.sendHandler);
-            this.eventHandlers.set('sendButton', { 
-                element: this.elements.sendButton, 
-                handler: this.sendHandler, 
-                event: 'click' 
+            this.eventHandlers.set('sendButton', {
+                element: this.elements.sendButton,
+                handler: this.sendHandler,
+                event: 'click'
             });
         }
-        
+
         // Enter key
         if (this.elements.userInput) {
             // Auto-resize textarea
@@ -689,7 +701,7 @@ class CompleteChatSystem {
                 textarea.style.height = `${newHeight}px`;
             };
             this.elements.userInput.addEventListener('input', this.autoResizeHandler);
-            
+
             // Enter key handler
             this.keypressHandler = (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -703,18 +715,18 @@ class CompleteChatSystem {
                 }
             };
             this.elements.userInput.addEventListener('keypress', this.keypressHandler);
-            this.eventHandlers.set('userInput', { 
-                element: this.elements.userInput, 
-                handler: this.keypressHandler, 
-                event: 'keypress' 
+            this.eventHandlers.set('userInput', {
+                element: this.elements.userInput,
+                handler: this.keypressHandler,
+                event: 'keypress'
             });
-            this.eventHandlers.set('userInputResize', { 
-                element: this.elements.userInput, 
-                handler: this.autoResizeHandler, 
-                event: 'input' 
+            this.eventHandlers.set('userInputResize', {
+                element: this.elements.userInput,
+                handler: this.autoResizeHandler,
+                event: 'input'
             });
         }
-        
+
         // Clear chat button
         if (this.elements.clearChatButton) {
             this.clearChatHandler = (e) => {
@@ -722,10 +734,10 @@ class CompleteChatSystem {
                 this.clearChat();
             };
             this.elements.clearChatButton.addEventListener('click', this.clearChatHandler);
-            this.eventHandlers.set('clearChatButton', { 
-                element: this.elements.clearChatButton, 
-                handler: this.clearChatHandler, 
-                event: 'click' 
+            this.eventHandlers.set('clearChatButton', {
+                element: this.elements.clearChatButton,
+                handler: this.clearChatHandler,
+                event: 'click'
             });
         }
     }
@@ -747,14 +759,14 @@ class CompleteChatSystem {
     }
 
     // === STATE MANAGEMENT ===
-    
+
     subscribeToGlobalState() {
         if (!this.globalState) return;
-        
+
         if (this.stateChangeHandler) {
             this.globalState.unsubscribe('stateChanged', this.stateChangeHandler);
         }
-        
+
         this.stateChangeHandler = (state) => this.handleStateChange(state);
         this.globalState.subscribe('stateChanged', this.stateChangeHandler);
     }
@@ -769,9 +781,9 @@ class CompleteChatSystem {
         // Only sync if there are new messages
         const currentCount = this.messages.size;
         const newCount = chatHistory.length;
-        
+
         if (newCount > currentCount) {
-            
+
             // Add only new messages
             for (let i = currentCount; i < newCount; i++) {
                 const message = chatHistory[i];
@@ -788,7 +800,7 @@ class CompleteChatSystem {
         if (this.isLoadingFromDatabase) {
             return;
         }
-        
+
         const currentState = this.globalState.getState();
         // Convert messages to the format expected by the database
         // Ensure timestamps are ISO strings (compatible with TIMESTAMP/TIMESTAMPTZ)
@@ -800,8 +812,8 @@ class CompleteChatSystem {
                 ts = ts;
             } else if (typeof ts === 'number') {
                 // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000 
-                    ? new Date(ts * 1000).toISOString() 
+                ts = ts < 10000000000
+                    ? new Date(ts * 1000).toISOString()
                     : new Date(ts).toISOString();
             } else {
                 ts = new Date().toISOString();
@@ -816,7 +828,7 @@ class CompleteChatSystem {
     }
 
     // === DATABASE OPERATIONS ===
-    
+
     async saveToDatabase(message) {
         try {
             // Validate message exists
@@ -824,7 +836,7 @@ class CompleteChatSystem {
                 console.warn('CompleteChatSystem: saveToDatabase called with invalid message:', message);
                 return false;
             }
-            
+
             // Normalize timestamp to ISO string - matches TIMESTAMP/TIMESTAMPTZ format
             let ts = message.timestamp;
             if (typeof ts === 'string') {
@@ -832,21 +844,21 @@ class CompleteChatSystem {
                 ts = ts;
             } else if (typeof ts === 'number') {
                 // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000 
-                    ? new Date(ts * 1000).toISOString() 
+                ts = ts < 10000000000
+                    ? new Date(ts * 1000).toISOString()
                     : new Date(ts).toISOString();
             } else {
                 ts = new Date().toISOString();
             }
-            
+
             const sessionId = this.currentChatId || 'default';
             const ok = await this.api.appendChatMessage(sessionId, message.role, message.content, ts);
-            
+
             if (!ok) {
                 console.error('CompleteChatSystem: appendChatMessage reported failure');
                 return false;
             }
-            
+
             return true;
         } catch (error) {
             console.error('CompleteChatSystem: Failed to append chat message:', error);
@@ -860,7 +872,7 @@ class CompleteChatSystem {
         if (!forceReload && (this.isLoadingHistory || this.chatHistoryLoaded)) {
             return; // Already loading or loaded
         }
-        
+
         // Reset state if forcing reload
         if (forceReload) {
             this.chatHistoryLoaded = false;
@@ -872,10 +884,10 @@ class CompleteChatSystem {
                 this.elements.chatMessages.innerHTML = '';
             }
         }
-        
+
         this.isLoadingHistory = true;
         this.isLoadingFromDatabase = true;  // Prevent circular updates
-        
+
         try {
             // Show loading indicator
             if (this.elements.chatMessages && !this.elements.chatMessages.querySelector('.chat-loading')) {
@@ -884,7 +896,7 @@ class CompleteChatSystem {
                 loadingDiv.innerHTML = '<div class="loading-spinner"></div><span>Loading chat history...</span>';
                 this.elements.chatMessages.appendChild(loadingDiv);
             }
-            
+
             // Load latest page without blocking UI paint
             const chatPromise = this.api.loadChatHistoryPage(this.pageSize, null, 800);
             chatPromise.then((chatHistoryArray) => {
@@ -898,7 +910,7 @@ class CompleteChatSystem {
                         let ts = m.timestamp;
                         if (!ts) {
                             // If no timestamp, use created_at or current time
-                            ts = m.created_at 
+                            ts = m.created_at
                                 ? (typeof m.created_at === 'string' ? m.created_at : new Date(m.created_at * 1000).toISOString())
                                 : new Date().toISOString();
                         } else if (typeof ts === 'string') {
@@ -918,13 +930,13 @@ class CompleteChatSystem {
                             }
                         } else if (typeof ts === 'number') {
                             // Convert Unix timestamp to ISO string
-                            ts = ts < 10000000000 
-                                ? new Date(ts * 1000).toISOString() 
+                            ts = ts < 10000000000
+                                ? new Date(ts * 1000).toISOString()
                                 : new Date(ts).toISOString();
                         } else {
                             ts = new Date().toISOString();
                         }
-                        
+
                         return {
                             id: m.id || `${m.role}_${Date.parse(ts)}_${Math.random().toString(36).substr(2, 5)}`,
                             role: m.role,
@@ -932,7 +944,7 @@ class CompleteChatSystem {
                             timestamp: ts, // ISO string for consistent deduplication
                             metadata: { status: 'loaded' }
                         };
-                    }).sort((a,b) => {
+                    }).sort((a, b) => {
                         // Sort by timestamp (ISO strings can be compared directly)
                         const timeA = Date.parse(a.timestamp || 0);
                         const timeB = Date.parse(b.timestamp || 0);
@@ -975,40 +987,40 @@ class CompleteChatSystem {
             this.isLoadingFromDatabase = false;
         }
     }
-    
+
     setupScrollListener() {
         if (!this.elements.chatMessages) return;
-        
+
         const messagesContainer = this.elements.chatMessages;
         let isScrolling = false;
-        
+
         messagesContainer.addEventListener('scroll', () => {
             // Throttle scroll events
             if (isScrolling) return;
             isScrolling = true;
-            
+
             requestAnimationFrame(() => {
                 // If near top, fetch older page
                 if (messagesContainer.scrollTop < 100) {
                     this.fetchOlderMessages();
                 }
-                
+
                 isScrolling = false;
             });
         });
     }
-    
+
     renderNextBatch(batchSize = 10) {
         const startIndex = this.renderedMessageCount;
         const endIndex = Math.min(startIndex + batchSize, this.allChatMessages.length);
-        
+
         if (!this.elements.chatMessages) {
             return;
         }
 
         const fragment = document.createDocumentFragment();
         let renderedCount = 0;
-        
+
         // Render messages in reverse order (oldest first)
         for (let i = startIndex; i < endIndex; i++) {
             const message = this.allChatMessages[i];
@@ -1037,13 +1049,13 @@ class CompleteChatSystem {
                 }
             } else if (typeof ts === 'number') {
                 // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000 
-                    ? new Date(ts * 1000).toISOString() 
+                ts = ts < 10000000000
+                    ? new Date(ts * 1000).toISOString()
                     : new Date(ts).toISOString();
             } else {
                 ts = new Date().toISOString();
             }
-            
+
             const fullMessage = {
                 id: message.id || `${message.role}_${Date.parse(ts)}_${Math.random().toString(36).substr(2, 9)}`,
                 role: message.role,
@@ -1071,7 +1083,7 @@ class CompleteChatSystem {
             this.elements.chatMessages.appendChild(fragment);
             this.scrollToBottom();
         }
-        
+
         this.renderedMessageCount = endIndex;
         if (this.renderedMessageCount >= this.allChatMessages.length) {
             this.chatHistoryLoaded = true;
@@ -1096,7 +1108,7 @@ class CompleteChatSystem {
                 // MySQL: "YYYY-MM-DD HH:MM:SS", PostgreSQL: ISO string
                 let ts = m.timestamp;
                 if (!ts) {
-                    ts = m.created_at 
+                    ts = m.created_at
                         ? (typeof m.created_at === 'string' ? m.created_at : new Date(m.created_at * 1000).toISOString())
                         : new Date().toISOString();
                 } else if (typeof ts === 'string') {
@@ -1112,8 +1124,8 @@ class CompleteChatSystem {
                     }
                 } else if (typeof ts === 'number') {
                     // Convert Unix timestamp to ISO string
-                    ts = ts < 10000000000 
-                        ? new Date(ts * 1000).toISOString() 
+                    ts = ts < 10000000000
+                        ? new Date(ts * 1000).toISOString()
                         : new Date(ts).toISOString();
                 }
                 return {
@@ -1123,7 +1135,7 @@ class CompleteChatSystem {
                     timestamp: ts, // ISO string - compatible with TIMESTAMP/TIMESTAMPTZ
                     metadata: { status: 'loaded' }
                 };
-            }).sort((a,b) => {
+            }).sort((a, b) => {
                 // Sort by timestamp (ISO strings can be compared directly)
                 const timeA = Date.parse(a.timestamp || 0);
                 const timeB = Date.parse(b.timestamp || 0);
@@ -1159,124 +1171,34 @@ class CompleteChatSystem {
     }
 
     // === AI IDEA EXTRACTION ===
-    
-    parseIdeasFromResponse(response) {
-        const ideas = [];
-        
-        // Look for patterns like "I've added X to your ideas" or "Here's an idea: X"
-        const patterns = [
-            /I've added ["']([^"']+)["'] to your ideas/i,
-            /added ["']([^"']+)["'] to your ideas/i,
-            /Here are some fresh ideas: ["']([^"']+)["']/i,
-            /Here are some ideas: ["']([^"']+)["']/i,
-            /Here's an idea: ["']?([^"'\n]+)["']?/i,
-            /Here is an idea: ["']?([^"'\n]+)["']?/i,
-            /suggestion: ["']?([^"'\n]+)["']?/i,
-            /consider: ["']?([^"'\n]+)["']?/i,
-            /idea: ["']?([^"'\n]+)["']?/i,
-            /["']([^"']+)["']/g  // Match any quoted text as potential ideas
-        ];
-        
-        patterns.forEach((pattern, index) => {
-            if (pattern.global) {
-                // Handle global patterns (like the last one for quoted text)
-                let match;
-                while ((match = pattern.exec(response)) !== null) {
-                    if (match[1]) {
-                        const idea = match[1].trim();
-                        if (idea.length > 3 && idea.length < 100 && !ideas.includes(idea)) {
-                            ideas.push(idea);
-                        }
-                    }
-                }
-            } else {
-                // Handle single match patterns
-                const matches = response.match(pattern);
-                if (matches && matches[1]) {
-                    const idea = matches[1].trim();
-                    if (idea.length > 3 && idea.length < 100 && !ideas.includes(idea)) {
-                        ideas.push(idea);
-                    }
-                }
-            }
-        });
-        
-        return ideas;
-    }
-    
-    async addIdeasToBrainstorm(ideas) {
-        console.log('IDEAS DEBUG: addIdeasToBrainstorm called with:', ideas);
-        if (!ideas || ideas.length === 0) {
-            console.log('IDEAS DEBUG: No ideas to add');
-            return;
-        }
-        
-        try {
-            // Get the PlanModule from the AIWritingAssistant instance
-            console.log('IDEAS DEBUG: Getting projectManager:', this.projectManager);
-            console.log('IDEAS DEBUG: Getting AIWritingAssistant from window:', window.aiWritingAssistant);
-            
-            // Try to get PlanModule from AIWritingAssistant
-            const aiWritingAssistant = window.aiWritingAssistant;
-            const planModule = aiWritingAssistant?.modules?.plan;
-            
-            console.log('IDEAS DEBUG: PlanModule from AIWritingAssistant:', planModule);
-            
-            if (planModule && planModule.addIdeaBubble) {
-                console.log('IDEAS DEBUG: PlanModule has addIdeaBubble method');
-                for (const idea of ideas) {
-                    console.log('IDEAS DEBUG: Processing idea:', idea);
-                    // Check if idea already exists
-                    const existingIdeas = Array.from(planModule.bubbles.values())
-                        .map(bubble => bubble.content.toLowerCase());
-                    console.log('IDEAS DEBUG: Existing ideas:', existingIdeas);
-                    
-                    if (!existingIdeas.includes(idea.toLowerCase())) {
-                        console.log('IDEAS DEBUG: Adding new idea:', idea);
-                        planModule.addIdeaBubble(idea);
-                        console.log('IDEAS DEBUG: Idea added successfully');
-                    } else {
-                        console.log('IDEAS DEBUG: Idea already exists, skipping:', idea);
-                    }
-                }
-            } else {
-                console.error('IDEAS DEBUG: PlanModule not found or addIdeaBubble method missing', {
-                    aiWritingAssistant: aiWritingAssistant,
-                    modules: aiWritingAssistant?.modules,
-                    plan: aiWritingAssistant?.modules?.plan,
-                    hasAddIdeaBubble: planModule?.addIdeaBubble
-                });
-            }
-        } catch (error) {
-            console.error('CompleteChatSystem: Error adding ideas to brainstorm:', error);
-        }
-    }
+
+
 
     // === REGENERATION ===
-    
+
     async regenerateMessage(message) {
         if (message.role !== 'assistant') return;
-        
+
         try {
             // Find the user message that prompted this response
             const messagesArray = Array.from(this.messages.values());
             const messageIndex = messagesArray.findIndex(msg => msg.id === message.id);
-            
+
             if (messageIndex > 0) {
                 const userMessage = messagesArray[messageIndex - 1];
                 if (userMessage.role === 'user') {
                     // Remove the current assistant message
                     this.removeMessage(message.id);
-                    
+
                     // Show typing indicator
                     this.showTypingIndicator();
-                    
+
                     // Regenerate response
                     const aiResponse = await this.getAIResponse(userMessage.content);
-                    
+
                     // Hide typing indicator
                     this.hideTypingIndicator();
-                    
+
                     // Add the new assistant response
                     const newAssistantMessage = this.createMessage('assistant', aiResponse);
                     await this.addMessage(newAssistantMessage);
@@ -1299,33 +1221,33 @@ class CompleteChatSystem {
     clearChat() {
         // Clear local messages
         this.messages.clear();
-        
+
         // Clear UI
         if (this.elements.chatMessages) {
             this.elements.chatMessages.innerHTML = '';
         }
-        
+
         // Update global state
         this.updateGlobalState();
-        
+
     }
 
     removeMessage(messageId) {
         // Remove from local storage
         this.messages.delete(messageId);
-        
+
         // Remove from DOM
         const messageElement = this.elements.chatMessages.querySelector(`[data-message-id="${messageId}"]`);
         if (messageElement) {
             messageElement.remove();
         }
-        
+
         // Update global state
         this.updateGlobalState();
     }
 
     // === PUBLIC API ===
-    
+
     getMessages() {
         return Array.from(this.messages.values());
     }
@@ -1347,23 +1269,23 @@ class CompleteChatSystem {
             console.warn('CompleteChatSystem: loadMessages called with non-array:', messages);
             return;
         }
-        
+
         // Don't overwrite if we're currently loading from database (prevents race condition)
         if (this.isLoadingHistory || this.isLoadingFromDatabase) {
             return;
         }
-        
+
         // Don't overwrite if we've already loaded from database
         // This prevents old cached state from overwriting fresh database data
         if (this.chatHistoryLoaded) {
             return;
         }
-        
+
         this.messages.clear();
         if (this.elements.chatMessages) {
             this.elements.chatMessages.innerHTML = '';
         }
-        
+
         messages.forEach(message => {
             // Ensure message has required fields
             if (message.role && message.content) {
@@ -1378,7 +1300,7 @@ class CompleteChatSystem {
                 this.renderMessage(fullMessage);
             }
         });
-        
+
         this.updateGlobalState();
     }
 }

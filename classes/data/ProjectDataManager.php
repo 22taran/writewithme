@@ -93,6 +93,17 @@ class ProjectDataManager {
         try {
             error_log('ProjectDataManager::saveProject called with data: ' . json_encode($projectData));
             
+            // Check if project is already submitted
+            $metadata = $DB->get_record('writeassistdev_metadata', [
+                'writeassistdevid' => $writeassistdevid,
+                'userid' => $userid
+            ]);
+            
+            if ($metadata && isset($metadata->status) && $metadata->status === 'submitted') {
+                error_log('ProjectDataManager::saveProject - BLOCKED: Project is submitted');
+                return false;
+            }
+            
             // Check if normalized tables exist (with proper prefix)
             $dbman = $DB->get_manager();
             $tableExists = $dbman->table_exists('writeassistdev_metadata');
@@ -163,7 +174,7 @@ class ProjectDataManager {
             
             // Save ideas
             error_log('Saving ideas...');
-            $this->saveIdeas($writeassistdevid, $userid, $projectData['plan']['ideas'] ?? []);
+            $ideaMappings = $this->saveIdeas($writeassistdevid, $userid, $projectData['plan']['ideas'] ?? []);
             
             // Save content
             error_log('Saving content...');
@@ -180,7 +191,11 @@ class ProjectDataManager {
             error_log('Committing transaction...');
             $transaction->allow_commit();
             error_log('Save completed successfully');
-            return true;
+            
+            return [
+                'success' => true,
+                'ideaMappings' => $ideaMappings
+            ];
             
         } catch (\Exception $e) {
             error_log('ProjectDataManager save error: ' . $e->getMessage());
@@ -404,9 +419,12 @@ class ProjectDataManager {
      * @param int $writeassistdevid Activity ID
      * @param int $userid User ID
      * @param array $ideas Ideas array
+     * @return array Mapping of client IDs to DB IDs
      */
     private function saveIdeas($writeassistdevid, $userid, $ideas) {
         global $DB;
+        
+        $idMappings = [];
         
         try {
             $now = time();
@@ -445,6 +463,7 @@ class ProjectDataManager {
                         $record['id'] = $id;
                         $DB->update_record('writeassistdev_ideas', $record);
                         error_log('Idea update: ID ' . $id);
+                        $idMappings[$id] = $id; // Map to itself
                         continue;
                     }
                 }
@@ -497,16 +516,29 @@ class ProjectDataManager {
                 
                 if ($isDuplicate && $existingId) {
                     // Update existing duplicate instead of creating new
+                    // Update existing duplicate instead of creating new
                     $record['id'] = $existingId;
                     $DB->update_record('writeassistdev_ideas', $record);
                     error_log('Idea update (duplicate prevention): ID ' . $existingId);
+                    
+                    // Map client ID (which might be temp) to the existing DB ID
+                    if (isset($idea['id'])) {
+                        $idMappings[$idea['id']] = $existingId;
+                    }
                 } else {
                     // Insert new
                     $record['created_at'] = $now;
                     $newid = $DB->insert_record('writeassistdev_ideas', $record);
                     error_log('Idea insert: new ID ' . $newid);
+                    
+                    // Map client ID to new DB ID
+                    if (isset($idea['id'])) {
+                        $idMappings[$idea['id']] = $newid;
+                    }
                 }
             }
+            
+            return $idMappings;
         } catch (\Exception $e) {
             error_log('saveIdeas error: ' . $e->getMessage());
             error_log('saveIdeas error trace: ' . $e->getTraceAsString());
@@ -926,5 +958,93 @@ class ProjectDataManager {
         }
         
         return $result;
+    }
+    /**
+     * Get all submissions for an activity
+     * @param int $writeassistdevid Activity ID
+     * @return array Array of submission data
+     */
+    public function getAllSubmissions($writeassistdevid) {
+        global $DB;
+        
+        try {
+            // Get all users who have metadata for this activity
+            $sql = "SELECT u.id, m.userid, m.modified_at as last_modified, 
+                           u.firstname, u.lastname, u.email, u.picture, u.imagealt
+                    FROM {writeassistdev_metadata} m
+                    JOIN {user} u ON m.userid = u.id
+                    WHERE m.writeassistdevid = :writeassistdevid
+                    ORDER BY u.lastname, u.firstname";
+            
+            $submissions = $DB->get_records_sql($sql, ['writeassistdevid' => $writeassistdevid]);
+            
+            // Enrich with word counts
+            foreach ($submissions as $submission) {
+                // Get write phase word count
+                $writeContent = $DB->get_record('writeassistdev_content', [
+                    'writeassistdevid' => $writeassistdevid,
+                    'userid' => $submission->userid,
+                    'phase' => 'write'
+                ], 'word_count');
+                $submission->write_word_count = $writeContent ? $writeContent->word_count : 0;
+                
+                // Get edit phase word count
+                $editContent = $DB->get_record('writeassistdev_content', [
+                    'writeassistdevid' => $writeassistdevid,
+                    'userid' => $submission->userid,
+                    'phase' => 'edit'
+                ], 'word_count');
+                $submission->edit_word_count = $editContent ? $editContent->word_count : 0;
+            }
+            
+            return array_values($submissions);
+            
+        } catch (\Exception $e) {
+            error_log('ProjectDataManager::getAllSubmissions error: ' . $e->getMessage());
+            return [];
+        }
+    }
+    /**
+     * Submit the project
+     * 
+     * @param int $writeassistdevid Activity ID
+     * @param int $userid User ID
+     * @return bool Success status
+     */
+    public function submitProject($writeassistdevid, $userid) {
+        global $DB;
+        
+        try {
+            error_log("submitProject called for activity $writeassistdevid, user $userid");
+
+            // Check if metadata exists
+            $metadata = $DB->get_record('writeassistdev_metadata', [
+                'writeassistdevid' => $writeassistdevid,
+                'userid' => $userid
+            ]);
+            
+            if (!$metadata) {
+                error_log("submitProject: Metadata not found for activity $writeassistdevid, user $userid");
+                return false;
+            }
+            
+            // Check if status field exists in the object (proxy for DB column existence)
+            // Note: get_record returns all columns. If 'status' is missing, the DB upgrade didn't run.
+            if (!property_exists($metadata, 'status')) {
+                error_log("submitProject: 'status' field missing from metadata record. Database upgrade likely needed.");
+            }
+
+            $metadata->status = 'submitted';
+            $metadata->modified_at = time();
+            
+            $result = $DB->update_record('writeassistdev_metadata', $metadata);
+            error_log("submitProject: update_record result: " . ($result ? 'SUCCESS' : 'FAILED'));
+            
+            return $result;
+            
+        } catch (\Exception $e) {
+            error_log('ProjectDataManager::submitProject error: ' . $e->getMessage());
+            return false;
+        }
     }
 }
