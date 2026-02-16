@@ -7,29 +7,29 @@
 
 /**
  * Export activity tracking data as CSV
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
+require_once($CFG->dirroot . '/mod/researchflow/lib.php');
 
 $id = required_param('id', PARAM_INT); // Course Module ID
 $userid = optional_param('userid', 0, PARAM_INT); // Optional: specific user, 0 = all users
 $format = optional_param('format', 'csv', PARAM_ALPHA); // csv or detailed
 
-if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)) {
+if (!$cm = get_coursemodule_from_id('researchflow', $id, 0, false, MUST_EXIST)) {
     print_error('invalidcoursemodule');
 }
 
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-$instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
+$instance = $DB->get_record('researchflow', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('mod/writeassistdev:addinstance', $context); // Instructor only
+require_capability('mod/researchflow:addinstance', $context); // Instructor only
 
 // Build query to get activity logs
 $sql = "SELECT 
@@ -38,11 +38,11 @@ $sql = "SELECT
             u.lastname,
             u.email,
             u.username
-        FROM {writeassistdev_activity_log} al
+        FROM {researchflow_activity_log} al
         INNER JOIN {user} u ON al.userid = u.id
-        WHERE al.writeassistdevid = :writeassistdevid";
+        WHERE al.researchflowid = :researchflowid";
 
-$params = ['writeassistdevid' => $instance->id];
+$params = ['researchflowid' => $instance->id];
 
 // Filter by user if specified
 if ($userid > 0) {
@@ -63,9 +63,9 @@ $activities = $DB->get_records_sql($sql, $params);
 // Check if there's any data
 if (empty($activities)) {
     // Redirect back with error message
-    $redirecturl = new moodle_url('/mod/writeassistdev/submissions.php', ['id' => $cm->id]);
+    $redirecturl = new moodle_url('/mod/researchflow/submissions.php', ['id' => $cm->id]);
     if ($userid > 0) {
-        $redirecturl = new moodle_url('/mod/writeassistdev/activity_report.php', ['id' => $cm->id, 'userid' => $userid]);
+        $redirecturl = new moodle_url('/mod/researchflow/activity_report.php', ['id' => $cm->id, 'userid' => $userid]);
     }
     redirect($redirecturl, 'No activity data found to export.', null, \core\output\notification::NOTIFY_WARNING);
 }
@@ -111,7 +111,7 @@ fputcsv($output, $headers);
 foreach ($activities as $activity) {
     $row = [
         $activity->id,
-        $activity->writeassistdevid,
+        $activity->researchflowid,
         $activity->userid,
         fullname($activity),
         $activity->username,

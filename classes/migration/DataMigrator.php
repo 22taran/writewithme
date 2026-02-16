@@ -6,13 +6,13 @@
 // (at your option) any later version.
 
 /**
- * Data migrator for writeassistdev module
- * @package    mod_writeassistdev
+ * Data migrator for researchflow module
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_writeassistdev\migration;
+namespace mod_researchflow\migration;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -32,17 +32,17 @@ class DataMigrator {
     
     /**
      * Migrate all data for a specific user and activity
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @return array Migration result
      */
-    public function migrate($writeassistdevid, $userid) {
+    public function migrate($researchflowid, $userid) {
         global $DB;
         
         try {
             // Get existing JSON data
-            $record = $DB->get_record('writeassistdev_work', [
-                'writeassistdevid' => $writeassistdevid,
+            $record = $DB->get_record('researchflow_work', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
@@ -63,16 +63,16 @@ class DataMigrator {
             
             try {
                 // Migrate metadata
-                $this->migrateMetadata($parsedData['metadata'], $writeassistdevid, $userid);
+                $this->migrateMetadata($parsedData['metadata'], $researchflowid, $userid);
                 
                 // Migrate ideas
-                $this->migrateIdeas($parsedData['ideas'], $writeassistdevid, $userid);
+                $this->migrateIdeas($parsedData['ideas'], $researchflowid, $userid);
                 
                 // Migrate content
-                $this->migrateContent($parsedData['content'], $writeassistdevid, $userid);
+                $this->migrateContent($parsedData['content'], $researchflowid, $userid);
                 
                 // Migrate chat
-                $this->migrateChat($parsedData['chat'], $writeassistdevid, $userid);
+                $this->migrateChat($parsedData['chat'], $researchflowid, $userid);
                 
                 // Commit transaction
                 $transaction->allow_commit();
@@ -98,14 +98,14 @@ class DataMigrator {
     /**
      * Migrate metadata to normalized table
      * @param array $metadata Metadata array
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      */
-    private function migrateMetadata($metadata, $writeassistdevid, $userid) {
+    private function migrateMetadata($metadata, $researchflowid, $userid) {
         global $DB;
         
         $record = [
-            'writeassistdevid' => $writeassistdevid,
+            'researchflowid' => $researchflowid,
             'userid' => $userid,
             'title' => $metadata['title'] ?? '',
             'description' => $metadata['description'] ?? '',
@@ -114,37 +114,37 @@ class DataMigrator {
         ];
         
         // Check if metadata already exists
-        $existing = $DB->get_record('writeassistdev_metadata', [
-            'writeassistdevid' => $writeassistdevid,
+        $existing = $DB->get_record('researchflow_metadata', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid
         ]);
         
         if ($existing) {
             $record['id'] = $existing->id;
-            $DB->update_record('writeassistdev_metadata', $record);
+            $DB->update_record('researchflow_metadata', $record);
         } else {
-            $DB->insert_record('writeassistdev_metadata', $record);
+            $DB->insert_record('researchflow_metadata', $record);
         }
     }
     
     /**
      * Migrate ideas to normalized table
      * @param array $ideas Ideas array
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      */
-    private function migrateIdeas($ideas, $writeassistdevid, $userid) {
+    private function migrateIdeas($ideas, $researchflowid, $userid) {
         global $DB;
         
         // Clear existing ideas
-        $DB->delete_records('writeassistdev_ideas', [
-            'writeassistdevid' => $writeassistdevid,
+        $DB->delete_records('researchflow_ideas', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid
         ]);
         
         foreach ($ideas as $idea) {
             $record = [
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'content' => $idea['content'],
                 'location' => $idea['location'],
@@ -152,17 +152,17 @@ class DataMigrator {
                 'ai_generated' => $idea['ai_generated'] ? 1 : 0
             ];
             
-            $DB->insert_record('writeassistdev_ideas', $record);
+            $DB->insert_record('researchflow_ideas', $record);
         }
     }
     
     /**
      * Migrate content to normalized table
      * @param array $content Content array
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      */
-    private function migrateContent($content, $writeassistdevid, $userid) {
+    private function migrateContent($content, $researchflowid, $userid) {
         global $DB;
         
         foreach ($content as $phase => $data) {
@@ -171,7 +171,7 @@ class DataMigrator {
             }
             
             $record = [
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'phase' => $phase,
                 'content' => $data['content'],
@@ -179,17 +179,17 @@ class DataMigrator {
             ];
             
             // Check if content already exists
-            $existing = $DB->get_record('writeassistdev_content', [
-                'writeassistdevid' => $writeassistdevid,
+            $existing = $DB->get_record('researchflow_content', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'phase' => $phase
             ]);
             
             if ($existing) {
                 $record['id'] = $existing->id;
-                $DB->update_record('writeassistdev_content', $record);
+                $DB->update_record('researchflow_content', $record);
             } else {
-                $DB->insert_record('writeassistdev_content', $record);
+                $DB->insert_record('researchflow_content', $record);
             }
         }
     }
@@ -197,61 +197,61 @@ class DataMigrator {
     /**
      * Migrate chat history to normalized table
      * @param array $chat Chat array
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      */
-    private function migrateChat($chat, $writeassistdevid, $userid) {
+    private function migrateChat($chat, $researchflowid, $userid) {
         global $DB;
         
         // Clear existing chat
-        $DB->delete_records('writeassistdev_chat', [
-            'writeassistdevid' => $writeassistdevid,
+        $DB->delete_records('researchflow_chat', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid
         ]);
         
         foreach ($chat as $message) {
             $record = [
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'role' => $message['role'],
                 'content' => $message['content'],
                 'timestamp' => $message['timestamp']
             ];
             
-            $DB->insert_record('writeassistdev_chat', $record);
+            $DB->insert_record('researchflow_chat', $record);
         }
     }
     
     /**
      * Rollback migration for a specific user and activity
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @return array Rollback result
      */
-    public function rollback($writeassistdevid, $userid) {
+    public function rollback($researchflowid, $userid) {
         global $DB;
         
         try {
             $transaction = $DB->start_delegated_transaction();
             
             // Delete all migrated data
-            $DB->delete_records('writeassistdev_metadata', [
-                'writeassistdevid' => $writeassistdevid,
+            $DB->delete_records('researchflow_metadata', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
-            $DB->delete_records('writeassistdev_ideas', [
-                'writeassistdevid' => $writeassistdevid,
+            $DB->delete_records('researchflow_ideas', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
-            $DB->delete_records('writeassistdev_content', [
-                'writeassistdevid' => $writeassistdevid,
+            $DB->delete_records('researchflow_content', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
-            $DB->delete_records('writeassistdev_chat', [
-                'writeassistdevid' => $writeassistdevid,
+            $DB->delete_records('researchflow_chat', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             

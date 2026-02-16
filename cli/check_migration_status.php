@@ -7,7 +7,7 @@
 
 /**
  * CLI script to check migration status
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -38,14 +38,14 @@ echo "Migration Status Report\n";
 echo "======================\n\n";
 
 // Count total records in old format
-$oldRecords = $DB->count_records('writeassistdev_work');
+$oldRecords = $DB->count_records('researchflow_work');
 echo "Records in old format (JSON blob): $oldRecords\n";
 
 // Count records in new format
-$newMetadata = $DB->count_records('writeassistdev_metadata');
-$newIdeas = $DB->count_records('writeassistdev_ideas');
-$newContent = $DB->count_records('writeassistdev_content');
-$newChat = $DB->count_records('writeassistdev_chat');
+$newMetadata = $DB->count_records('researchflow_metadata');
+$newIdeas = $DB->count_records('researchflow_ideas');
+$newContent = $DB->count_records('researchflow_content');
+$newChat = $DB->count_records('researchflow_chat');
 
 echo "Records in new format:\n";
 echo "  Metadata: $newMetadata\n";
@@ -58,30 +58,30 @@ echo "Data Integrity Checks:\n";
 
 // Check for orphaned records
 $orphanedIdeas = $DB->count_records_sql("
-    SELECT COUNT(*) FROM {writeassistdev_ideas} i 
-    LEFT JOIN {writeassistdev} w ON i.writeassistdevid = w.id 
+    SELECT COUNT(*) FROM {researchflow_ideas} i 
+    LEFT JOIN {researchflow} w ON i.researchflowid = w.id 
     WHERE w.id IS NULL
 ");
 echo "  Orphaned ideas: $orphanedIdeas\n";
 
 $orphanedContent = $DB->count_records_sql("
-    SELECT COUNT(*) FROM {writeassistdev_content} c 
-    LEFT JOIN {writeassistdev} w ON c.writeassistdevid = w.id 
+    SELECT COUNT(*) FROM {researchflow_content} c 
+    LEFT JOIN {researchflow} w ON c.researchflowid = w.id 
     WHERE w.id IS NULL
 ");
 echo "  Orphaned content: $orphanedContent\n";
 
 $orphanedChat = $DB->count_records_sql("
-    SELECT COUNT(*) FROM {writeassistdev_chat} c 
-    LEFT JOIN {writeassistdev} w ON c.writeassistdevid = w.id 
+    SELECT COUNT(*) FROM {researchflow_chat} c 
+    LEFT JOIN {researchflow} w ON c.researchflowid = w.id 
     WHERE w.id IS NULL
 ");
 echo "  Orphaned chat: $orphanedChat\n";
 
 // Check for missing data
 $missingMetadata = $DB->count_records_sql("
-    SELECT COUNT(*) FROM {writeassistdev_work} w 
-    LEFT JOIN {writeassistdev_metadata} m ON w.writeassistdevid = m.writeassistdevid AND w.userid = m.userid 
+    SELECT COUNT(*) FROM {researchflow_work} w 
+    LEFT JOIN {researchflow_metadata} m ON w.researchflowid = m.researchflowid AND w.userid = m.userid 
     WHERE m.id IS NULL
 ");
 echo "  Missing metadata: $missingMetadata\n";

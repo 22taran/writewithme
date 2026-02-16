@@ -2,11 +2,14 @@ import os
 import json
 from typing import Dict, List, Any, Optional
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from langchain.tools import BaseTool
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.tools import BaseTool
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from pydantic import BaseModel, Field
+
+# Import agent creation and executor for LangChain 0.2.0+
+# These should be available in the main agents module
+from langchain.agents import create_openai_tools_agent, AgentExecutor
 
 
 class AddIdeaInput(BaseModel):

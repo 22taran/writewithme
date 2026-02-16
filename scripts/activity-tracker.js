@@ -4,10 +4,10 @@
  */
 
 class ActivityTracker {
-    constructor(globalState, api, writeassistdevId, userId) {
+    constructor(globalState, api, researchflowId, userId) {
         this.globalState = globalState;
         this.api = api;
-        this.writeassistdevId = writeassistdevId;
+        this.researchflowId = researchflowId;
         this.userId = userId;
         this.sessionId = this.generateSessionId();
         this.currentPhase = 'write';
@@ -43,7 +43,7 @@ class ActivityTracker {
     }
     
     init() {
-        console.log('ActivityTracker: Initializing activity tracking for writeassistdev ID:', this.writeassistdevId);
+        console.log('ActivityTracker: Initializing activity tracking for researchflow ID:', this.researchflowId);
         
         // Track phase changes
         this.globalState.subscribe('stateChanged', (state) => {
@@ -426,7 +426,7 @@ class ActivityTracker {
     
     logActivity(data, phase) {
         const activity = {
-            writeassistdevid: this.writeassistdevId,
+            researchflowid: this.researchflowId,
             userid: this.userId,
             phase: phase || this.currentPhase,
             action_type: data.action_type,

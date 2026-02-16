@@ -6,8 +6,8 @@
 // (at your option) any later version.
 
 /**
- * Capability definitions for the writeassistdev module
- * @package    mod_writeassistdev
+ * Capability definitions for the researchflow module
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -15,7 +15,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = array(
-    'mod/writeassistdev:addinstance' => [
+    'mod/researchflow:addinstance' => [
         'riskbitmask' => RISK_XSS,
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,
@@ -25,7 +25,7 @@ $capabilities = array(
         ],
         'clonepermissionsfrom' => 'moodle/course:manageactivities'
     ],
-    'mod/writeassistdev:view' => [
+    'mod/researchflow:view' => [
         'captype' => 'read',
         'contextlevel' => CONTEXT_MODULE,
         'archetypes' => [
@@ -37,7 +37,7 @@ $capabilities = array(
             'manager' => CAP_ALLOW
         ]
     ],
-    'mod/writeassistdev:submit' => [
+    'mod/researchflow:submit' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_MODULE,
         'archetypes' => [

@@ -6,19 +6,19 @@
 // (at your option) any later version.
 
 /**
- * Course module viewed event for the writeassistdev module
- * @package    mod_writeassistdev
+ * Course module viewed event for the researchflow module
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_writeassistdev\event;
+namespace mod_researchflow\event;
 
 defined('MOODLE_INTERNAL') || die();
 
 /**
  * Course module viewed event class
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -28,7 +28,7 @@ class course_module_viewed extends \core\event\course_module_viewed {
      * Initialize the event
      */
     protected function init() {
-        $this->data['objecttable'] = 'writeassistdev';
+        $this->data['objecttable'] = 'researchflow';
         $this->data['crud'] = 'r';
         $this->data['edulevel'] = self::LEVEL_PARTICIPATING;
     }
@@ -39,7 +39,7 @@ class course_module_viewed extends \core\event\course_module_viewed {
      * @return string
      */
     public static function get_name() {
-        return get_string('eventcoursemoduleviewed', 'mod_writeassistdev');
+        return get_string('eventcoursemoduleviewed', 'mod_researchflow');
     }
 
     /**
@@ -57,7 +57,7 @@ class course_module_viewed extends \core\event\course_module_viewed {
      * @return \moodle_url
      */
     public function get_url() {
-        return new \moodle_url('/mod/writeassistdev/view.php', array('id' => $this->contextinstanceid));
+        return new \moodle_url('/mod/researchflow/view.php', array('id' => $this->contextinstanceid));
     }
 
     /**
@@ -66,7 +66,7 @@ class course_module_viewed extends \core\event\course_module_viewed {
      * @return array
      */
     protected function get_legacy_logdata() {
-        return array($this->courseid, 'writeassistdev', 'view', 'view.php?id=' . $this->contextinstanceid,
+        return array($this->courseid, 'researchflow', 'view', 'view.php?id=' . $this->contextinstanceid,
             $this->objectid, $this->contextinstanceid);
     }
 } 

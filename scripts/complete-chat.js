@@ -1,5 +1,40 @@
 // Complete Chat System - Built from scratch with all features
 
+// === TIMESTAMP UTILITIES (never use current time for stored/loaded messages) ===
+const TS = {
+    /** Parse timestamp to ISO string. Returns null if invalid. NEVER uses current time. */
+    toISO(ts) {
+        if (ts == null || ts === '') return null;
+        if (typeof ts === 'number') {
+            if (Number.isNaN(ts)) return null;
+            const ms = ts < 10000000000 ? ts * 1000 : ts;
+            const d = new Date(ms);
+            return isNaN(d.getTime()) ? null : d.toISOString();
+        }
+        if (typeof ts === 'string' && ts) {
+            if (ts.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                const d = new Date(ts.replace(' ', 'T'));
+                return isNaN(d.getTime()) ? null : d.toISOString();
+            }
+            const parsed = parseInt(ts, 10);
+            if (!Number.isNaN(parsed) && /^\d+$/.test(String(ts).trim())) {
+                return TS.toISO(parsed);  // Numeric string like "1739356200"
+            }
+            const d = new Date(ts);
+            if (!isNaN(d.getTime())) return d.toISOString();
+            return null;
+        }
+        return null;
+    },
+    /** Format for display. Returns '' if invalid. */
+    formatForDisplay(ts) {
+        const iso = typeof ts === 'string' && ts.includes('T') ? ts : TS.toISO(ts);
+        if (!iso) return '';
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+};
+
 // === CHAT TAB MANAGER ===
 
 class ChatTabManager {
@@ -254,33 +289,7 @@ class CompleteChatSystem {
         this.messageKeys = new Set(); // strong dedupe: role|ts|content
 
         this.makeMessageKey = (m) => {
-            // Normalize timestamp to ISO string for consistent deduplication
-            // Must handle both ISO strings and MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
-            let ts = m.timestamp;
-            if (!ts) {
-                ts = new Date().toISOString();
-            } else if (typeof ts === 'string') {
-                // Check if it's MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
-                if (ts.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                    // MySQL TIMESTAMP format - convert to ISO string
-                    const date = new Date(ts.replace(' ', 'T') + 'Z');
-                    ts = date.toISOString();
-                } else if (ts.includes('T')) {
-                    // Already ISO string - use as-is
-                    ts = ts;
-                } else {
-                    // Try to parse as date and convert to ISO
-                    const date = new Date(ts);
-                    ts = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-                }
-            } else if (typeof ts === 'number') {
-                // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000
-                    ? new Date(ts * 1000).toISOString()
-                    : new Date(ts).toISOString();
-            } else {
-                ts = new Date().toISOString();
-            }
+            const ts = TS.toISO(m.timestamp) || 'epoch';
             return `${m.role}|${ts}|${m.content}`;
         };
 
@@ -323,7 +332,8 @@ class CompleteChatSystem {
 
         // Setup event listeners immediately for responsive UI
         this.setupEventListeners();
-        this.subscribeToGlobalState();
+        // Don't subscribe to stateChanged until AFTER loadChatHistory completes -
+        // prevents loadProject's setState from overwriting DB-loaded timestamps
         this.setupAutoSave();
 
         // Load chat history asynchronously (non-blocking)
@@ -509,12 +519,14 @@ class CompleteChatSystem {
     // === UI MANAGEMENT ===
 
     renderMessage(message, prepend = false) {
-
         if (!this.elements.chatMessages) {
             console.error('CompleteChatSystem: Chat messages container not found');
             return;
         }
 
+        // Remove empty/error state when first message appears
+        const stateEl = this.elements.chatMessages.querySelector('.chat-state');
+        if (stateEl) stateEl.remove();
 
         // Check if already rendered
         const existingElement = this.elements.chatMessages.querySelector(`[data-message-id="${message.id}"]`);
@@ -524,10 +536,17 @@ class CompleteChatSystem {
 
         const messageElement = this.createMessageElement(message);
 
+        const container = this.elements.chatMessages;
+        const typingEl = this.elements.typingIndicator;
         if (prepend) {
-            this.elements.chatMessages.insertBefore(messageElement, this.elements.chatMessages.firstChild);
+            container.insertBefore(messageElement, container.firstChild);
         } else {
-            this.elements.chatMessages.appendChild(messageElement);
+            // Insert before typing indicator so "AI is thinking" stays at bottom
+            if (typingEl && container.contains(typingEl)) {
+                container.insertBefore(messageElement, typingEl);
+            } else {
+                container.appendChild(messageElement);
+            }
             this.scrollToBottom();
         }
 
@@ -561,19 +580,8 @@ class CompleteChatSystem {
             contentDiv.textContent = message.content;
         }
 
-        // Ensure we have a valid timestamp for display
-        // Convert Unix seconds to ISO string only for display
-        let displayTime = message.timestamp;
-        if (typeof displayTime === 'number') {
-            // Unix seconds - convert to ISO for display
-            displayTime = new Date(displayTime * 1000).toISOString();
-        } else if (typeof displayTime === 'string') {
-            // Already a string, use as-is
-            displayTime = displayTime;
-        } else {
-            displayTime = new Date().toISOString();
-        }
-        const timeDiv = createElement('div', 'message-time', this.formatTime(displayTime));
+        const displayStr = TS.formatForDisplay(message.timestamp);
+        const timeDiv = createElement('div', 'message-time', displayStr);
 
         messageDiv.appendChild(contentDiv);
         messageDiv.appendChild(timeDiv);
@@ -611,6 +619,7 @@ class CompleteChatSystem {
 
     showTypingIndicator() {
         if (this.elements.typingIndicator) {
+            this.ensureTypingIndicatorAtBottom();
             this.elements.typingIndicator.style.display = 'flex';
             this.scrollToBottom();
         }
@@ -622,6 +631,18 @@ class CompleteChatSystem {
         }
     }
 
+    ensureTypingIndicatorAtBottom() {
+        const container = this.elements.chatMessages;
+        const typing = this.elements.typingIndicator;
+        if (typing && container) {
+            if (!container.contains(typing)) {
+                container.appendChild(typing);
+            } else {
+                container.appendChild(typing);  // Move to end if already present
+            }
+        }
+    }
+
     scrollToBottom() {
         if (this.elements.chatMessages) {
             this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
@@ -629,44 +650,7 @@ class CompleteChatSystem {
     }
 
     formatTime(timestamp) {
-        // Handle different timestamp formats
-        let date;
-
-        if (typeof timestamp === 'string') {
-            // Check if it's MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
-            if (timestamp.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                // MySQL TIMESTAMP format - database stores in UTC but returns without timezone
-                // Parse as UTC by adding 'Z' suffix, then JavaScript will convert to local time
-                date = new Date(timestamp.replace(' ', 'T') + 'Z');
-            } else {
-                // Try to parse as ISO string (may include timezone info)
-                date = new Date(timestamp);
-                // If invalid, try parsing as Unix timestamp
-                if (isNaN(date.getTime())) {
-                    date = new Date(parseInt(timestamp) * 1000);
-                }
-            }
-        } else if (typeof timestamp === 'number') {
-            // If it's a Unix timestamp (seconds), convert to milliseconds
-            if (timestamp < 10000000000) { // Unix timestamp in seconds
-                date = new Date(timestamp * 1000);
-            } else { // Already in milliseconds
-                date = new Date(timestamp);
-            }
-        } else {
-            // Fallback to current time
-            date = new Date();
-        }
-
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
-            console.warn('CompleteChatSystem: Invalid timestamp:', timestamp);
-            return 'Invalid time';
-        }
-
-        // Use toLocaleTimeString which will display in user's local timezone
-        // The date object is already in UTC, so this will convert to local time automatically
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return TS.formatForDisplay(timestamp);
     }
 
     // === EVENT HANDLING ===
@@ -772,22 +756,38 @@ class CompleteChatSystem {
     }
 
     handleStateChange(state) {
+        // Don't pull from state when we've loaded from DB - DB is the source of truth.
+        // This prevents loadProject's project.chatHistory (or stale state) from overwriting
+        // correct timestamps that were loaded from the database.
+        if (this.chatHistoryLoaded || this.isLoadingFromDatabase) {
+            return;
+        }
         if (state.chatHistory && Array.isArray(state.chatHistory)) {
             this.syncWithGlobalState(state.chatHistory);
         }
     }
 
     syncWithGlobalState(chatHistory) {
+        // Once DB has loaded, do not accept state updates - prevents wrong timestamps
+        if (this.chatHistoryLoaded) {
+            return;
+        }
         // Only sync if there are new messages
         const currentCount = this.messages.size;
         const newCount = chatHistory.length;
 
         if (newCount > currentCount) {
-
-            // Add only new messages
+            // Add only new messages - ensure timestamps are valid (never use current time for loaded msgs)
             for (let i = currentCount; i < newCount; i++) {
                 const message = chatHistory[i];
                 if (!this.messages.has(message.id)) {
+                    // Normalize timestamp: if missing/invalid, skip this message to avoid current-time display
+                    const ts = message.timestamp;
+                    const hasValidTs = (typeof ts === 'string' && ts) || (typeof ts === 'number' && ts > 0);
+                    if (!hasValidTs) {
+                        console.warn('CompleteChatSystem: Skipping message with invalid timestamp from state sync');
+                        continue;
+                    }
                     this.messages.set(message.id, message);
                     this.renderMessage(message);
                 }
@@ -805,23 +805,11 @@ class CompleteChatSystem {
         // Convert messages to the format expected by the database
         // Ensure timestamps are ISO strings (compatible with TIMESTAMP/TIMESTAMPTZ)
         currentState.chatHistory = Array.from(this.messages.values()).map(msg => {
-            let ts = msg.timestamp;
-            // Normalize to ISO string if needed
-            if (typeof ts === 'string') {
-                // Already ISO string - use as-is
-                ts = ts;
-            } else if (typeof ts === 'number') {
-                // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000
-                    ? new Date(ts * 1000).toISOString()
-                    : new Date(ts).toISOString();
-            } else {
-                ts = new Date().toISOString();
-            }
+            const ts = TS.toISO(msg.timestamp);
             return {
                 role: msg.role,
                 content: msg.content,
-                timestamp: ts // Always ISO string (compatible with TIMESTAMP/TIMESTAMPTZ)
+                timestamp: ts || ''  // Never use current time for missing
             };
         });
         this.globalState.setState(currentState);
@@ -837,20 +825,7 @@ class CompleteChatSystem {
                 return false;
             }
 
-            // Normalize timestamp to ISO string - matches TIMESTAMP/TIMESTAMPTZ format
-            let ts = message.timestamp;
-            if (typeof ts === 'string') {
-                // Already ISO string - use as-is
-                ts = ts;
-            } else if (typeof ts === 'number') {
-                // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000
-                    ? new Date(ts * 1000).toISOString()
-                    : new Date(ts).toISOString();
-            } else {
-                ts = new Date().toISOString();
-            }
-
+            const ts = TS.toISO(message.timestamp) || new Date().toISOString();  // New msgs need timestamp for DB
             const sessionId = this.currentChatId || 'default';
             const ok = await this.api.appendChatMessage(sessionId, message.role, message.content, ts);
 
@@ -889,66 +864,57 @@ class CompleteChatSystem {
         this.isLoadingFromDatabase = true;  // Prevent circular updates
 
         try {
-            // Show loading indicator
+            // Show loading indicator (ChatGPT/Cursor-style)
             if (this.elements.chatMessages && !this.elements.chatMessages.querySelector('.chat-loading')) {
                 const loadingDiv = document.createElement('div');
-                loadingDiv.className = 'chat-loading';
-                loadingDiv.innerHTML = '<div class="loading-spinner"></div><span>Loading chat history...</span>';
+                loadingDiv.className = 'chat-loading chat-state';
+                loadingDiv.innerHTML = `
+                    <div class="chat-loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span>Loading conversation...</span>
+                `;
                 this.elements.chatMessages.appendChild(loadingDiv);
             }
 
-            // Load latest page without blocking UI paint
-            const chatPromise = this.api.loadChatHistoryPage(this.pageSize, null, 800);
-            chatPromise.then((chatHistoryArray) => {
-                const loadingDiv = this.elements.chatMessages?.querySelector('.chat-loading');
+            const container = this.elements.chatMessages;
+            const chatPromise = this.api.loadChatHistoryPage(this.pageSize, null, 0, this.currentChatId || 'chat-1');
+            chatPromise.then(async (chatHistoryArray) => {
+                const loadingDiv = container?.querySelector('.chat-loading, .chat-state');
                 if (loadingDiv) loadingDiv.remove();
 
-                if (chatHistoryArray && Array.isArray(chatHistoryArray) && chatHistoryArray.length > 0) {
-                    const normalized = chatHistoryArray.map(m => {
-                        // Normalize timestamp to ISO string for consistent deduplication
-                        // Database returns TIMESTAMP as "YYYY-MM-DD HH:MM:SS" string
-                        let ts = m.timestamp;
-                        if (!ts) {
-                            // If no timestamp, use created_at or current time
-                            ts = m.created_at
-                                ? (typeof m.created_at === 'string' ? m.created_at : new Date(m.created_at * 1000).toISOString())
-                                : new Date().toISOString();
-                        } else if (typeof ts === 'string') {
-                            // Check if it's MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
-                            if (ts.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                                // MySQL TIMESTAMP format - convert to ISO string for consistency
-                                // Parse as UTC and convert to ISO string
-                                const date = new Date(ts.replace(' ', 'T') + 'Z');
-                                ts = date.toISOString();
-                            } else if (ts.includes('T')) {
-                                // Already ISO string - use as-is
-                                ts = ts;
-                            } else {
-                                // Try to parse as date and convert to ISO
-                                const date = new Date(ts);
-                                ts = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-                            }
-                        } else if (typeof ts === 'number') {
-                            // Convert Unix timestamp to ISO string
-                            ts = ts < 10000000000
-                                ? new Date(ts * 1000).toISOString()
-                                : new Date(ts).toISOString();
-                        } else {
-                            ts = new Date().toISOString();
-                        }
+                let data = Array.isArray(chatHistoryArray) ? chatHistoryArray : [];
+                if (data.length === 0) {
+                    try {
+                        data = await this.api.loadChatHistoryPage(this.pageSize, null, 0, null);
+                    } catch (_) { /* fallback failed */ }
+                }
+                const raw = Array.isArray(data) ? data : [];
+
+                if (raw.length > 0) {
+                    const normalized = raw.map(m => {
+                        // NEVER use current time for loaded messages - DB is source of truth
+                        let ts = TS.toISO(m.timestamp) || TS.toISO(m.created_at);
+                        if (!ts) ts = null;  // Skip invalid; will display as empty
 
                         return {
-                            id: m.id || `${m.role}_${Date.parse(ts)}_${Math.random().toString(36).substr(2, 5)}`,
+                            id: m.id || `${m.role}_${(ts ? Date.parse(ts) : 0)}_${Math.random().toString(36).substr(2, 5)}`,
                             role: m.role,
                             content: m.content,
-                            timestamp: ts, // ISO string for consistent deduplication
+                            timestamp: ts,
                             metadata: { status: 'loaded' }
                         };
-                    }).sort((a, b) => {
+                    }).filter(m => m.role && m.content != null).sort((a, b) => {
                         // Sort by timestamp (ISO strings can be compared directly)
                         const timeA = Date.parse(a.timestamp || 0);
                         const timeB = Date.parse(b.timestamp || 0);
-                        return timeA - timeB;
+                        if (timeA !== timeB) {
+                            return timeA - timeB;
+                        }
+                        // If timestamps are equal, sort by ID to ensure consistent ordering
+                        const idA = parseInt(a.id) || 0;
+                        const idB = parseInt(b.id) || 0;
+                        return idA - idB;
                     });
 
                     this.allChatMessages = normalized;
@@ -958,25 +924,29 @@ class CompleteChatSystem {
                     // We need to check if there are messages older than the oldest we loaded
                     this.hasMore = normalized.length >= this.pageSize;
                     this.renderedMessageCount = 0;
+                    this.messageKeys.clear();  // Fresh load - reset dedupe
                     this.messages.clear();
-                    if (this.elements.chatMessages) this.elements.chatMessages.innerHTML = '';
+                    const msgEl = this.elements.chatMessages;
+                    if (msgEl) msgEl.innerHTML = '';
 
-                    // Render all messages immediately (no lazy loading for initial load)
-                    // This ensures all messages are visible right away
+                    this.chatHistoryLoaded = true;
                     requestAnimationFrame(() => {
                         this.renderNextBatch(this.allChatMessages.length);
+                        this.ensureTypingIndicatorAtBottom();
+                        this.updateGlobalState();  // Push to state for save coordination only
                     });
                     this.setupScrollListener();
-                    this.chatHistoryLoaded = true;
                 } else {
                     this.chatHistoryLoaded = true;
+                    this.showEmptyState(container);
                 }
 
                 this.isLoadingHistory = false;
                 this.isLoadingFromDatabase = false;
-            }).catch(() => {
-                const loadingDiv = this.elements.chatMessages?.querySelector('.chat-loading');
+            }).catch((err) => {
+                const loadingDiv = container?.querySelector('.chat-loading, .chat-state');
                 if (loadingDiv) loadingDiv.remove();
+                this.showErrorState(container, err);
                 this.isLoadingHistory = false;
                 this.isLoadingFromDatabase = false;
                 this.chatHistoryLoaded = true;
@@ -986,6 +956,60 @@ class CompleteChatSystem {
             this.isLoadingHistory = false;
             this.isLoadingFromDatabase = false;
         }
+    }
+
+    showEmptyState(container) {
+        if (!container) return;
+        const existing = container.querySelector('.chat-empty, .chat-state');
+        if (existing) return;
+        const el = document.createElement('div');
+        el.className = 'chat-state chat-empty';
+        const suggestions = [
+            'Help me improve this paragraph',
+            'Check my grammar',
+            'Suggest better word choices'
+        ];
+        el.innerHTML = `
+            <div class="chat-empty-icon">💬</div>
+            <p class="chat-empty-title">No messages yet</p>
+            <p class="chat-empty-subtitle">Start a conversation by typing below</p>
+            <div class="chat-suggestions">
+                ${suggestions.map(s => `<span class="chat-suggestion" data-suggestion="${s.replace(/"/g, '&quot;')}">${s}</span>`).join('')}
+            </div>
+        `;
+        el.querySelectorAll('.chat-suggestion').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.getAttribute('data-suggestion');
+                if (text && this.elements.userInput) {
+                    this.elements.userInput.value = text;
+                    this.elements.userInput.focus();
+                }
+            });
+        });
+        container.appendChild(el);
+        // Ensure typing indicator exists and is at bottom when messages appear
+        if (this.elements.typingIndicator && !container.contains(this.elements.typingIndicator)) {
+            container.appendChild(this.elements.typingIndicator);
+        }
+    }
+
+    showErrorState(container, err) {
+        if (!container) return;
+        const existing = container.querySelector('.chat-error, .chat-state');
+        if (existing) existing.remove();
+        const el = document.createElement('div');
+        el.className = 'chat-state chat-error';
+        const raw = (err && (err.message || err.toString)) ? (err.message || err.toString()) : 'Failed to load chat';
+        const msg = String(raw).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        el.innerHTML = `
+            <div class="chat-error-icon">⚠️</div>
+            <p class="chat-error-title">Could not load chat</p>
+            <p class="chat-error-message">${msg}</p>
+            <button type="button" class="chat-retry-btn">Retry</button>
+        `;
+        const btn = el.querySelector('.chat-retry-btn');
+        if (btn) btn.addEventListener('click', () => this.loadChatHistory(true));
+        container.appendChild(el);
     }
 
     setupScrollListener() {
@@ -1029,35 +1053,11 @@ class CompleteChatSystem {
                 continue;
             }
 
-            // Normalize timestamp to ISO string for consistent deduplication
-            let ts = message.timestamp;
-            if (!ts) {
-                ts = new Date().toISOString();
-            } else if (typeof ts === 'string') {
-                // Check if it's MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS)
-                if (ts.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                    // MySQL TIMESTAMP format - convert to ISO string
-                    const date = new Date(ts.replace(' ', 'T') + 'Z');
-                    ts = date.toISOString();
-                } else if (ts.includes('T')) {
-                    // Already ISO string - use as-is
-                    ts = ts;
-                } else {
-                    // Try to parse as date and convert to ISO
-                    const date = new Date(ts);
-                    ts = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
-                }
-            } else if (typeof ts === 'number') {
-                // Convert Unix timestamp to ISO string
-                ts = ts < 10000000000
-                    ? new Date(ts * 1000).toISOString()
-                    : new Date(ts).toISOString();
-            } else {
-                ts = new Date().toISOString();
-            }
+            // NEVER use current time for loaded messages
+            const ts = TS.toISO(message.timestamp) || message.timestamp;  // Keep original if TS.toISO fails (e.g. already ISO)
 
             const fullMessage = {
-                id: message.id || `${message.role}_${Date.parse(ts)}_${Math.random().toString(36).substr(2, 9)}`,
+                id: message.id || `${message.role}_${(ts ? Date.parse(ts) : 0)}_${Math.random().toString(36).substr(2, 9)}`,
                 role: message.role,
                 content: message.content,
                 timestamp: ts, // ISO string - compatible with TIMESTAMP/TIMESTAMPTZ
@@ -1081,6 +1081,7 @@ class CompleteChatSystem {
         // Single append to DOM (one layout/paint)
         if (renderedCount > 0) {
             this.elements.chatMessages.appendChild(fragment);
+            this.ensureTypingIndicatorAtBottom();
             this.scrollToBottom();
         }
 
@@ -1096,7 +1097,7 @@ class CompleteChatSystem {
         try {
             const before = this.oldestTimestampLoaded;
             if (!before) { this.hasMore = false; return; }
-            const older = await this.api.loadChatHistoryPage(this.pageSize, before);
+            const older = await this.api.loadChatHistoryPage(this.pageSize, before, 0, this.currentChatId || 'chat-1');
             if (!older || older.length === 0) {
                 this.hasMore = false;
                 return;
@@ -1104,38 +1105,15 @@ class CompleteChatSystem {
 
             // Normalize and sort ascending
             const normalized = older.map(m => {
-                // Preserve timestamp as ISO string - database returns TIMESTAMP as string
-                // MySQL: "YYYY-MM-DD HH:MM:SS", PostgreSQL: ISO string
-                let ts = m.timestamp;
-                if (!ts) {
-                    ts = m.created_at
-                        ? (typeof m.created_at === 'string' ? m.created_at : new Date(m.created_at * 1000).toISOString())
-                        : new Date().toISOString();
-                } else if (typeof ts === 'string') {
-                    // Check if it's MySQL TIMESTAMP format (YYYY-MM-DD HH:MM:SS) or ISO
-                    if (ts.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                        // MySQL TIMESTAMP format - keep as-is for now
-                        // The formatTime function will handle parsing it correctly
-                        // Don't convert to ISO here as it would shift timezone
-                        ts = ts;
-                    } else {
-                        // Already ISO string - use as-is
-                        ts = ts;
-                    }
-                } else if (typeof ts === 'number') {
-                    // Convert Unix timestamp to ISO string
-                    ts = ts < 10000000000
-                        ? new Date(ts * 1000).toISOString()
-                        : new Date(ts).toISOString();
-                }
+                const ts = TS.toISO(m.timestamp) || TS.toISO(m.created_at);
                 return {
-                    id: m.id || `${m.role}_${Date.parse(ts)}_${Math.random().toString(36).substr(2, 5)}`,
+                    id: m.id || `${m.role}_${(ts ? Date.parse(ts) : 0)}_${Math.random().toString(36).substr(2, 5)}`,
                     role: m.role,
                     content: m.content,
-                    timestamp: ts, // ISO string - compatible with TIMESTAMP/TIMESTAMPTZ
+                    timestamp: ts,
                     metadata: { status: 'loaded' }
                 };
-            }).sort((a, b) => {
+            }).filter(m => m.role && m.content).sort((a, b) => {
                 // Sort by timestamp (ISO strings can be compared directly)
                 const timeA = Date.parse(a.timestamp || 0);
                 const timeB = Date.parse(b.timestamp || 0);
@@ -1287,13 +1265,13 @@ class CompleteChatSystem {
         }
 
         messages.forEach(message => {
-            // Ensure message has required fields
             if (message.role && message.content) {
+                const ts = TS.toISO(message.timestamp);
                 const fullMessage = {
                     id: message.id || `${message.role}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                     role: message.role,
                     content: message.content,
-                    timestamp: message.timestamp || new Date().toISOString(),
+                    timestamp: ts || null,  // Never use current time for loaded
                     metadata: message.metadata || { retryCount: 0, status: 'loaded' }
                 };
                 this.messages.set(fullMessage.id, fullMessage);

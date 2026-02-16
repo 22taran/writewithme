@@ -6,8 +6,8 @@
 // (at your option) any later version.
 
 /**
- * Settings for the writeassistdev module
- * @package    mod_writeassistdev
+ * Settings for the researchflow module
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -16,17 +16,24 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_heading(
-        'writeassistdev_settings',
-        get_string('pluginname', 'mod_writeassistdev'),
-        get_string('settingsdescription', 'mod_writeassistdev')
+        'researchflow_settings',
+        get_string('pluginname', 'mod_researchflow'),
+        get_string('settingsdescription', 'mod_researchflow')
     ));
 
     $settings->add(new admin_setting_configtext(
-        'mod_writeassistdev/api_endpoint',
-        get_string('api_endpoint', 'mod_writeassistdev'),
-        get_string('api_endpoint_desc', 'mod_writeassistdev'),
+        'mod_researchflow/api_endpoint',
+        get_string('api_endpoint', 'mod_researchflow'),
+        get_string('api_endpoint_desc', 'mod_researchflow'),
         '',
         PARAM_URL
+    ));
+
+    $settings->add(new admin_setting_configpasswordunmask(
+        'mod_researchflow/api_key',
+        get_string('api_key', 'mod_researchflow'),
+        get_string('api_key_desc', 'mod_researchflow'),
+        ''
     ));
 
 }

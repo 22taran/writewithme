@@ -7,41 +7,41 @@
 
 /**
  * Export student work as DOCX or PDF
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/classes/data/ProjectDataManager.php');
+require_once($CFG->dirroot . '/mod/researchflow/lib.php');
+require_once($CFG->dirroot . '/mod/researchflow/classes/data/ProjectDataManager.php');
 
 $id = required_param('id', PARAM_INT); // Course Module ID
 $format = required_param('format', PARAM_ALPHA); // 'docx' or 'pdf'
 $userid = optional_param('userid', 0, PARAM_INT); // Optional: for instructors viewing student work
 
-if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)) {
+if (!$cm = get_coursemodule_from_id('researchflow', $id, 0, false, MUST_EXIST)) {
     print_error('invalidcoursemodule');
 }
 
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-$instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
+$instance = $DB->get_record('researchflow', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('mod/writeassistdev:view', $context);
+require_capability('mod/researchflow:view', $context);
 
 // Determine which user's work to export
 $exportuserid = $userid ? $userid : $USER->id;
 
 // If exporting another user's work, require instructor capability
 if ($exportuserid != $USER->id) {
-    require_capability('mod/writeassistdev:addinstance', $context);
+    require_capability('mod/researchflow:addinstance', $context);
 }
 
 // Load project data
-$dataManager = new \mod_writeassistdev\data\ProjectDataManager();
+$dataManager = new \mod_researchflow\data\ProjectDataManager();
 $project = $dataManager->loadProject($instance->id, $exportuserid);
 
 // Get content from 'edit' phase (final version), fallback to 'write' phase

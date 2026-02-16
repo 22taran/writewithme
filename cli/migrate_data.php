@@ -7,7 +7,7 @@
 
 /**
  * CLI script for data migration
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -17,7 +17,7 @@ define('CLI_SCRIPT', true);
 require_once(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/clilib.php');
 
-use mod_writeassistdev\migration\DataMigrator;
+use mod_researchflow\migration\DataMigrator;
 
 $usage = "Usage: php migrate_data.php [options]\n";
 $usage .= "Options:\n";
@@ -60,12 +60,12 @@ if ($options['user-id']) {
 }
 
 if ($options['activity-id']) {
-    $where[] = 'writeassistdevid = ?';
+    $where[] = 'researchflowid = ?';
     $params[] = $options['activity-id'];
 }
 
 $whereClause = empty($where) ? '' : 'WHERE ' . implode(' AND ', $where);
-$sql = "SELECT * FROM {writeassistdev_work} $whereClause ORDER BY id";
+$sql = "SELECT * FROM {researchflow_work} $whereClause ORDER BY id";
 $records = $DB->get_records_sql($sql, $params);
 
 echo "Found " . count($records) . " records to migrate\n\n";
@@ -79,21 +79,21 @@ foreach (array_chunk($records, $batchSize) as $batch) {
     
     foreach ($batch as $record) {
         if ($dryRun) {
-            echo "Would migrate: User {$record->userid}, Activity {$record->writeassistdevid}\n";
+            echo "Would migrate: User {$record->userid}, Activity {$record->researchflowid}\n";
             $successCount++;
         } else {
-            $result = $migrator->migrate($record->writeassistdevid, $record->userid);
+            $result = $migrator->migrate($record->researchflowid, $record->userid);
             
             if ($result['success']) {
                 $successCount++;
-                echo "✓ Migrated: User {$record->userid}, Activity {$record->writeassistdevid}\n";
+                echo "✓ Migrated: User {$record->userid}, Activity {$record->researchflowid}\n";
                 echo "  - Ideas: {$result['ideas_migrated']}\n";
                 echo "  - Chat messages: {$result['chat_messages_migrated']}\n";
                 echo "  - Content records: {$result['content_records_migrated']}\n";
             } else {
                 $errorCount++;
-                $errors[] = "User {$record->userid}, Activity {$record->writeassistdevid}: {$result['message']}";
-                echo "✗ Failed: User {$record->userid}, Activity {$record->writeassistdevid}\n";
+                $errors[] = "User {$record->userid}, Activity {$record->researchflowid}: {$result['message']}";
+                echo "✗ Failed: User {$record->userid}, Activity {$record->researchflowid}\n";
                 echo "  Error: {$result['message']}\n";
             }
         }

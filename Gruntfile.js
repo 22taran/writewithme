@@ -18,7 +18,7 @@ module.exports = function(grunt) {
                 'scripts/complete-chat.js',
                 'scripts/main.js'
             ],
-                dest: 'scripts/writeassistdev.min.js'
+                dest: 'scripts/researchflow.min.js'
             }
         },
         
@@ -34,7 +34,7 @@ module.exports = function(grunt) {
             },
             dist: {
                 files: {
-                    'scripts/writeassistdev.min.js': ['scripts/writeassistdev.min.js']
+                    'scripts/researchflow.min.js': ['scripts/researchflow.min.js']
                 }
             }
         },

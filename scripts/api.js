@@ -61,12 +61,15 @@ class ProjectAPI {
     }
 
     // OPTIMIZED: Load ONLY chat history (for fast initialization)
-    async loadChatHistoryOnly() {
+    async loadChatHistoryOnly(sessionId = null) {
         try {
             const formData = new URLSearchParams();
             formData.append('action', 'load_chat_history_only');
             formData.append('cmid', this.cmId);
             formData.append('sesskey', this.sesskey);
+            if (sessionId) {
+                formData.append('session_id', sessionId);
+            }
 
             const response = await fetch(this.ajaxUrl, {
                 method: 'POST',
@@ -91,7 +94,7 @@ class ProjectAPI {
     }
 
     // Paginated chat history: latest first, with optional before timestamp
-    async loadChatHistoryPage(limit = 50, beforeTimestamp = null, timeoutMs = 0) {
+    async loadChatHistoryPage(limit = 50, beforeTimestamp = null, timeoutMs = 0, sessionId = null) {
         try {
             const formData = new URLSearchParams();
             formData.append('action', 'load_chat_history_only');
@@ -102,6 +105,9 @@ class ProjectAPI {
             }
             if (beforeTimestamp !== null) {
                 formData.append('before', String(beforeTimestamp));
+            }
+            if (sessionId) {
+                formData.append('session_id', sessionId);
             }
 
             const controller = timeoutMs > 0 ? new AbortController() : null;
@@ -415,7 +421,7 @@ class ProjectAPI {
             }
 
             // Fallback: try direct file access
-            const templateUrl = `${window.location.origin}/mod/writeassistdev/data/templates/${templateId}.json`;
+            const templateUrl = `${window.location.origin}/mod/researchflow/data/templates/${templateId}.json`;
             const response = await fetch(templateUrl, {
                 cache: 'no-store',
                 credentials: 'same-origin'
@@ -462,46 +468,46 @@ class ProjectAPI {
         }
     }
 
-    // Send chat message to AI and get response with updated project data
+    // Send chat message to AI via Moodle proxy (keeps API key server-side)
     async sendChatMessage(userMessage, currentProject = null) {
-        if (!this.apiEndpoint || this.apiEndpoint === null || this.apiEndpoint === '' || this.apiEndpoint === 'null') {
-            console.error('API endpoint is not configured');
+        if (!this.ajaxUrl || !this.sesskey || !this.cmId) {
+            console.error('Missing required API configuration');
             return {
-                assistantReply: 'The AI Writing Assistant API endpoint has not been configured. Please contact your site administrator to configure the API endpoint in Site Administration → Plugins → Activity modules → AI Writing Assistant.',
+                assistantReply: 'Configuration error. Please refresh the page and try again.',
                 updatedProject: null
             };
         }
 
-        const fullUrl = `${this.apiEndpoint}/api/chat`;
-
-        // Sanitize project data for API consumption
         const sanitizedProject = this.sanitizeProjectForAPI(currentProject);
+        let projectDataString;
+        try {
+            projectDataString = JSON.stringify(sanitizedProject || {});
+        } catch (serializeError) {
+            console.error('Failed to serialize request data:', serializeError);
+            return {
+                assistantReply: 'Error: Could not prepare request data for AI service.',
+                updatedProject: null
+            };
+        }
 
         try {
-            // Validate that we can serialize the data
-            const requestBody = {
-                userInput: userMessage,
-                currentProject: sanitizedProject
-            };
+            const formData = new URLSearchParams();
+            formData.append('action', 'proxy_chat');
+            formData.append('cmid', this.cmId);
+            formData.append('sesskey', this.sesskey);
+            formData.append('user_input', userMessage);
+            formData.append('project_data', projectDataString);
 
-            let jsonString;
-            try {
-                jsonString = JSON.stringify(requestBody);
-            } catch (serializeError) {
-                console.error('Failed to serialize request data:', serializeError);
-                return {
-                    assistantReply: 'Error: Could not prepare request data for AI service.',
-                    updatedProject: null
-                };
-            }
-
-            const response = await fetch(fullUrl, {
+            const response = await fetch(this.ajaxUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: jsonString
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                credentials: 'same-origin',
+                body: formData
             });
 
-            // Check if we got HTML instead of JSON (common with 404 errors)
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 return {
@@ -512,10 +518,10 @@ class ProjectAPI {
 
             const result = await response.json();
 
-            if (!response.ok) {
+            if (!result.success) {
                 return {
-                    assistantReply: result.assistantReply || `API Error: ${response.status}`,
-                    updatedProject: null
+                    assistantReply: result.assistantReply || result.error || 'AI service error.',
+                    updatedProject: result.project || null
                 };
             }
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<XMLDB PATH="mod/writeassistdev/db" VERSION="2025072700" COMMENT="XMLDB for writeassistdev">
+<XMLDB PATH="mod/researchflow/db" VERSION="2025052000" COMMENT="XMLDB for researchflow">
     <TABLES>
-        <TABLE NAME="writeassistdev" COMMENT="AI Writing Assistant activity settings">
+        <TABLE NAME="researchflow" COMMENT="AI Writing Assistant activity settings">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
                 <FIELD NAME="course" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Course ID"/>
@@ -27,15 +27,15 @@
                 <INDEX NAME="course" UNIQUE="false" FIELDS="course"/>
             </INDEXES>
             <CAPABILITIES>
-                <CAPABILITY NAME="mod/writeassistdev:addinstance" CAPTYPE="write" RISK="none"/>
-                <CAPABILITY NAME="mod/writeassistdev:view" CAPTYPE="read" RISK="none"/>
-                <CAPABILITY NAME="mod/writeassistdev:submit" CAPTYPE="write" RISK="none"/>
+                <CAPABILITY NAME="mod/researchflow:addinstance" CAPTYPE="write" RISK="none"/>
+                <CAPABILITY NAME="mod/researchflow:view" CAPTYPE="read" RISK="none"/>
+                <CAPABILITY NAME="mod/researchflow:submit" CAPTYPE="write" RISK="none"/>
             </CAPABILITIES>
         </TABLE>
-        <TABLE NAME="writeassistdev_work" COMMENT="Student-specific work blobs">
+        <TABLE NAME="researchflow_work" COMMENT="Student-specific work blobs">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int"   LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int"   LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="content" TYPE="text" NOTNULL="false" COMMENT="Student work blob"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
@@ -44,18 +44,18 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk"  TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="uniq_user_item"         TYPE="unique"  FIELDS="writeassistdevid,userid"/>
+                <KEY NAME="researchflow_fk"  TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="uniq_user_item"         TYPE="unique"  FIELDS="researchflowid,userid"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="userid" UNIQUE="false" FIELDS="userid"/>
-                <INDEX NAME="writeassistdevid" UNIQUE="false" FIELDS="writeassistdevid"/>
+                <INDEX NAME="researchflowid" UNIQUE="false" FIELDS="researchflowid"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="writeassistdev_ideas" COMMENT="Student ideas for writing">
+        <TABLE NAME="researchflow_ideas" COMMENT="Student ideas for writing">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="content" TYPE="text" NOTNULL="true" COMMENT="Idea content"/>
                 <FIELD NAME="location" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Location of idea"/>
@@ -67,18 +67,18 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,writeassistdevid"/>
+                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,researchflowid"/>
                 <INDEX NAME="idx_location" UNIQUE="false" FIELDS="location"/>
                 <INDEX NAME="idx_ai_generated" UNIQUE="false" FIELDS="ai_generated"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="writeassistdev_content" COMMENT="Student content by phase">
+        <TABLE NAME="researchflow_content" COMMENT="Student content by phase">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="phase" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Writing phase"/>
                 <FIELD NAME="content" TYPE="text" NOTNULL="false" COMMENT="Content text"/>
@@ -89,41 +89,41 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="unique_user_phase" TYPE="unique" FIELDS="writeassistdevid,userid,phase"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="unique_user_phase" TYPE="unique" FIELDS="researchflowid,userid,phase"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="idx_word_count" UNIQUE="false" FIELDS="word_count"/>
                 <INDEX NAME="idx_phase" UNIQUE="false" FIELDS="phase"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="writeassistdev_chat" COMMENT="Chat messages">
+        <TABLE NAME="researchflow_chat" COMMENT="Chat messages">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="chat_session_id" TYPE="char" LENGTH="50" NOTNULL="true" COMMENT="Chat session ID"/>
                 <FIELD NAME="role" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Message role (user/assistant)"/>
                 <FIELD NAME="content" TYPE="text" NOTNULL="true" COMMENT="Message content"/>
-                <FIELD NAME="timestamp" TYPE="timestamp" NOTNULL="true" COMMENT="Message timestamp"/>
+                <FIELD NAME="timestamp" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Message timestamp (Unix timestamp)"/>
                 <FIELD NAME="created_at" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="Time created"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,writeassistdevid"/>
+                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,researchflowid"/>
                 <INDEX NAME="idx_chat_session" UNIQUE="false" FIELDS="chat_session_id"/>
                 <INDEX NAME="idx_timestamp" UNIQUE="false" FIELDS="timestamp"/>
                 <INDEX NAME="idx_role" UNIQUE="false" FIELDS="role"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="writeassistdev_chat_sessions" COMMENT="Chat session metadata">
+        <TABLE NAME="researchflow_chat_sessions" COMMENT="Chat session metadata">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="session_id" TYPE="char" LENGTH="50" NOTNULL="true" COMMENT="Session ID"/>
                 <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="false" DEFAULT="New Chat" COMMENT="Session title"/>
@@ -134,19 +134,19 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="unique_session" TYPE="unique" FIELDS="writeassistdevid,userid,session_id"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="unique_session" TYPE="unique" FIELDS="researchflowid,userid,session_id"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,writeassistdevid"/>
+                <INDEX NAME="idx_user_activity" UNIQUE="false" FIELDS="userid,researchflowid"/>
                 <INDEX NAME="idx_session_id" UNIQUE="false" FIELDS="session_id"/>
                 <INDEX NAME="idx_is_active" UNIQUE="false" FIELDS="is_active"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="writeassistdev_metadata" COMMENT="Student metadata for activity">
+        <TABLE NAME="researchflow_metadata" COMMENT="Student metadata for activity">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="false" COMMENT="Student title"/>
                 <FIELD NAME="description" TYPE="text" NOTNULL="false" COMMENT="Student description"/>
@@ -160,14 +160,14 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="unique_user_activity" TYPE="unique" FIELDS="writeassistdevid,userid"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="unique_user_activity" TYPE="unique" FIELDS="researchflowid,userid"/>
             </KEYS>
         </TABLE>
-        <TABLE NAME="writeassistdev_versions" COMMENT="Content version history">
+        <TABLE NAME="researchflow_versions" COMMENT="Content version history">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="phase" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Writing phase"/>
                 <FIELD NAME="content" TYPE="text" NOTNULL="true" COMMENT="Content text"/>
@@ -180,19 +180,19 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
                 <KEY NAME="modified_by_fk" TYPE="foreign" FIELDS="modified_by" REFTABLE="user" REFFIELDS="id" ONDELETE="setnull"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="writeassistdevid,userid,phase"/>
+                <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="researchflowid,userid,phase"/>
                 <INDEX NAME="idx_version_number" UNIQUE="false" FIELDS="version_number"/>
                 <INDEX NAME="idx_created_at" UNIQUE="false" FIELDS="created_at"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="writeassistdev_activity_log" COMMENT="Student activity tracking for writing analytics">
+        <TABLE NAME="researchflow_activity_log" COMMENT="Student activity tracking for writing analytics">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="writeassistdevid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to writeassistdev"/>
+                <FIELD NAME="researchflowid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="FK to researchflow"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" COMMENT="User ID"/>
                 <FIELD NAME="phase" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Writing phase (write/edit)"/>
                 <FIELD NAME="action_type" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Action type (typing, paste, copy, delete, etc)"/>
@@ -209,10 +209,10 @@
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" ONDELETE="cascade"/>
-                <KEY NAME="writeassistdev_fk" TYPE="foreign" FIELDS="writeassistdevid" REFTABLE="writeassistdev" REFFIELDS="id" ONDELETE="cascade"/>
+                <KEY NAME="researchflow_fk" TYPE="foreign" FIELDS="researchflowid" REFTABLE="researchflow" REFFIELDS="id" ONDELETE="cascade"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="writeassistdevid,userid,phase"/>
+                <INDEX NAME="idx_user_activity_phase" UNIQUE="false" FIELDS="researchflowid,userid,phase"/>
                 <INDEX NAME="idx_action_type" UNIQUE="false" FIELDS="action_type"/>
                 <INDEX NAME="idx_timestamp" UNIQUE="false" FIELDS="timestamp"/>
                 <INDEX NAME="idx_session" UNIQUE="false" FIELDS="session_id"/>

@@ -7,39 +7,39 @@
 
 /**
  * AI Writing Assistant chat history page
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/classes/data/ProjectDataManager.php');
+require_once($CFG->dirroot . '/mod/researchflow/lib.php');
+require_once($CFG->dirroot . '/mod/researchflow/classes/data/ProjectDataManager.php');
 
 $id = required_param('id', PARAM_INT); // Course Module ID
 $userid = required_param('userid', PARAM_INT); // Student User ID
 
-if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)) {
+if (!$cm = get_coursemodule_from_id('researchflow', $id, 0, false, MUST_EXIST)) {
     print_error('invalidcoursemodule');
 }
 
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-$instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
+$instance = $DB->get_record('researchflow', ['id' => $cm->instance], '*', MUST_EXIST);
 $student = $DB->get_record('user', ['id' => $userid], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('mod/writeassistdev:addinstance', $context); // Instructor only
+require_capability('mod/researchflow:addinstance', $context); // Instructor only
 
-$PAGE->set_url(new moodle_url('/mod/writeassistdev/chat_history.php', ['id' => $cm->id, 'userid' => $userid]));
+$PAGE->set_url(new moodle_url('/mod/researchflow/chat_history.php', ['id' => $cm->id, 'userid' => $userid]));
 $PAGE->set_title(format_string($instance->name) . ' - Chat History - ' . fullname($student));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('incourse');
 
 // Load project data to get chat history
-$dataManager = new \mod_writeassistdev\data\ProjectDataManager();
+$dataManager = new \mod_researchflow\data\ProjectDataManager();
 $project = $dataManager->loadProject($instance->id, $userid);
 
 // Extract chat history from project data
@@ -57,8 +57,8 @@ if ($project) {
 // Also try to get from the database directly
 if (empty($chatHistory)) {
     global $DB;
-    $chatRecords = $DB->get_records('writeassistdev_chat_history', [
-        'writeassistdevid' => $instance->id,
+    $chatRecords = $DB->get_records('researchflow_chat', [
+        'researchflowid' => $instance->id,
         'userid' => $userid
     ], 'timestamp ASC');
     
@@ -89,8 +89,8 @@ echo $OUTPUT->header();
             </div>
         </div>
         <div class="col-md-4 text-right">
-            <a href="<?php echo new moodle_url('/mod/writeassistdev/submission_view.php', ['id' => $cm->id, 'userid' => $userid]); ?>" class="btn btn-secondary mr-2">Back to Document</a>
-            <a href="<?php echo new moodle_url('/mod/writeassistdev/submissions.php', ['id' => $cm->id]); ?>" class="btn btn-secondary">Back to List</a>
+            <a href="<?php echo new moodle_url('/mod/researchflow/submission_view.php', ['id' => $cm->id, 'userid' => $userid]); ?>" class="btn btn-secondary mr-2">Back to Document</a>
+            <a href="<?php echo new moodle_url('/mod/researchflow/submissions.php', ['id' => $cm->id]); ?>" class="btn btn-secondary">Back to List</a>
         </div>
     </div>
 
@@ -114,6 +114,15 @@ echo $OUTPUT->header();
                                 $alignClass = $isUser ? 'justify-content-end' : 'justify-content-start';
                                 $bgClass = $isUser ? 'bg-primary text-white' : 'bg-light';
                                 $timestamp = isset($message['timestamp']) ? $message['timestamp'] : null;
+                                // Convert timestamp to Unix for userdate: MySQL TIMESTAMP string, Unix seconds, or milliseconds
+                                $timestampUnix = null;
+                                if ($timestamp !== null) {
+                                    if (is_string($timestamp)) {
+                                        $timestampUnix = strtotime($timestamp);
+                                    } else if (is_numeric($timestamp)) {
+                                        $timestampUnix = ($timestamp > 10000000000) ? (int)($timestamp / 1000) : (int)$timestamp;
+                                    }
+                                }
                                 ?>
                                 <div class="d-flex <?php echo $alignClass; ?> mb-3">
                                     <div class="message-bubble <?php echo $bgClass; ?> p-3 rounded" style="max-width: 70%;">
@@ -121,9 +130,9 @@ echo $OUTPUT->header();
                                             <strong class="mr-2">
                                                 <?php echo $isUser ? fullname($student) : 'AI Assistant'; ?>
                                             </strong>
-                                            <?php if ($timestamp): ?>
+                                            <?php if ($timestampUnix !== false && $timestampUnix > 0): ?>
                                                 <small class="<?php echo $isUser ? 'text-white-50' : 'text-muted'; ?>">
-                                                    <?php echo userdate($timestamp / 1000, '%d %b %Y, %H:%M'); ?>
+                                                    <?php echo userdate($timestampUnix, '%d %b %Y, %H:%M'); ?>
                                                 </small>
                                             <?php endif; ?>
                                         </div>

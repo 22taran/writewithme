@@ -7,39 +7,39 @@
 
 /**
  * AI Writing Assistant submission view page
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/classes/data/ProjectDataManager.php');
+require_once($CFG->dirroot . '/mod/researchflow/lib.php');
+require_once($CFG->dirroot . '/mod/researchflow/classes/data/ProjectDataManager.php');
 
 $id = required_param('id', PARAM_INT); // Course Module ID
 $userid = required_param('userid', PARAM_INT); // Student User ID
 
-if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)) {
+if (!$cm = get_coursemodule_from_id('researchflow', $id, 0, false, MUST_EXIST)) {
     print_error('invalidcoursemodule');
 }
 
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-$instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
+$instance = $DB->get_record('researchflow', ['id' => $cm->instance], '*', MUST_EXIST);
 $student = $DB->get_record('user', ['id' => $userid], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('mod/writeassistdev:addinstance', $context); // Instructor only
+require_capability('mod/researchflow:addinstance', $context); // Instructor only
 
-$PAGE->set_url(new moodle_url('/mod/writeassistdev/submission_view.php', ['id' => $cm->id, 'userid' => $userid]));
+$PAGE->set_url(new moodle_url('/mod/researchflow/submission_view.php', ['id' => $cm->id, 'userid' => $userid]));
 $PAGE->set_title(format_string($instance->name) . ' - ' . fullname($student));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('incourse');
 
 // Load project data
-$dataManager = new \mod_writeassistdev\data\ProjectDataManager();
+$dataManager = new \mod_researchflow\data\ProjectDataManager();
 $project = $dataManager->loadProject($instance->id, $userid);
 
 // Get content from 'edit' phase (final version), fallback to 'write' phase
@@ -59,13 +59,13 @@ if ($project && isset($project['edit']) && !empty($project['edit']['content'])) 
 $status = $project['metadata']['status'] ?? 'draft'; // Assuming status is in metadata now
 
 // Get activity logs to identify pasted content
-$activityLogs = $DB->get_records('writeassistdev_activity_log', [
-    'writeassistdevid' => $instance->id,
+$activityLogs = $DB->get_records('researchflow_activity_log', [
+    'researchflowid' => $instance->id,
     'userid' => $userid
 ], 'timestamp ASC');
 
 // Calculate statistics for the view
-$stats = writeassistdev_calculate_activity_stats($activityLogs);
+$stats = researchflow_calculate_activity_stats($activityLogs);
 
 // Analyze document for color-coding
 // Color coding logic removed in favor of side-by-side view
@@ -85,7 +85,7 @@ echo $OUTPUT->header();
             </div>
         </div>
         <div class="col-md-4 text-right">
-            <a href="<?php echo new moodle_url('/mod/writeassistdev/submissions.php', ['id' => $cm->id]); ?>" class="btn btn-secondary mr-2">Back to List</a>
+            <a href="<?php echo new moodle_url('/mod/researchflow/submissions.php', ['id' => $cm->id]); ?>" class="btn btn-secondary mr-2">Back to List</a>
             <button onclick="window.print()" class="btn btn-primary">Print / PDF</button>
         </div>
     </div>

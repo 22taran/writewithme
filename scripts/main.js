@@ -3377,11 +3377,11 @@ class AIWritingAssistant {
         this.versionHistory = new VersionHistoryManager(this.api);
         
         // Initialize activity tracker (if ActivityTracker is available)
-        if (typeof ActivityTracker !== 'undefined' && window.writeassistdevId && window.userId) {
+        if (typeof ActivityTracker !== 'undefined' && window.researchflowId && window.userId) {
             this.activityTracker = new ActivityTracker(
                 this.globalState,
                 this.api,
-                window.writeassistdevId,
+                window.researchflowId,
                 window.userId
             );
             this.activityTracker.setupUnloadHandler();
@@ -3392,29 +3392,9 @@ class AIWritingAssistant {
     }
 
     setupChatManagerConnection() {
-        // Subscribe to state changes to update chat UI
-        // NOTE: We're more careful here to avoid overwriting fresh database data
-        this.globalState.subscribe('stateChanged', (state) => {
-            if (state.chatHistory && Array.isArray(state.chatHistory)) {
-                // Only update if the chat history has actually changed AND we're not loading from DB
-                const currentMessages = this.chatSystem.getMessages();
-                // Only reload if state has MORE messages (new messages added) and we're not loading from DB
-                if (state.chatHistory.length > currentMessages.length &&
-                    !this.chatSystem.isLoadingHistory &&
-                    !this.chatSystem.isLoadingFromDatabase) {
-                    // Use syncWithGlobalState instead of loadMessages to add only new messages
-                    this.chatSystem.syncWithGlobalState(state.chatHistory);
-                }
-            }
-        });
-
-        // Don't load from state on ready - let loadChatHistory() handle it from database
-        // This prevents old cached state from overwriting fresh database data
-        // this.globalState.subscribe('ready', (state) => {
-        //     if (state.chatHistory && Array.isArray(state.chatHistory)) {
-        //         this.chatSystem.loadMessages(state.chatHistory);
-        //     }
-        // });
+        // Chat uses DB as single source of truth (loadChatHistory). It never accepts
+        // state.chatHistory as input - that caused timestamp overwrites. Chat pushes
+        // to state via updateGlobalState for save coordination only.
     }
 
     setupActionButtons() {
@@ -3538,8 +3518,8 @@ class AIWritingAssistant {
         // Save project first to ensure latest content is exported
         this.projectManager.saveProject().then(() => {
             // Get the base URL from Moodle
-            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf('/mod/writeassistdev/'));
-            const url = baseUrl + '/mod/writeassistdev/export.php';
+            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf('/mod/researchflow/'));
+            const url = baseUrl + '/mod/researchflow/export.php';
             const params = new URLSearchParams({
                 id: window.cmid || new URLSearchParams(window.location.search).get('id'),
                 format: format
@@ -3550,8 +3530,8 @@ class AIWritingAssistant {
         }).catch(error => {
             console.error('Error saving before export:', error);
             // Still try to export even if save fails
-            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf('/mod/writeassistdev/'));
-            const url = baseUrl + '/mod/writeassistdev/export.php';
+            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.indexOf('/mod/researchflow/'));
+            const url = baseUrl + '/mod/researchflow/export.php';
             const params = new URLSearchParams({
                 id: window.cmid || new URLSearchParams(window.location.search).get('id'),
                 format: format
@@ -3647,7 +3627,7 @@ class AIWritingAssistant {
     }
 
     handleExit() {
-        const courseUrl = window.location.href.split('/mod/writeassistdev/')[0] + '/course/view.php?id=' + window.courseId;
+        const courseUrl = window.location.href.split('/mod/researchflow/')[0] + '/course/view.php?id=' + window.courseId;
         window.location.href = courseUrl;
     }
 
@@ -3687,7 +3667,7 @@ class AIWritingAssistant {
         }
 
         // Load saved width from localStorage
-        const savedWidth = localStorage.getItem('writeassistdev_chat_width');
+        const savedWidth = localStorage.getItem('researchflow_chat_width');
         if (savedWidth) {
             const width = parseInt(savedWidth, 10);
             if (width >= 250 && width <= 600) {
@@ -3738,7 +3718,7 @@ class AIWritingAssistant {
 
             // Save width to localStorage
             const currentWidth = chatSection.offsetWidth;
-            localStorage.setItem('writeassistdev_chat_width', currentWidth.toString());
+            localStorage.setItem('researchflow_chat_width', currentWidth.toString());
         };
 
         // Mouse events
@@ -3825,19 +3805,9 @@ class AIWritingAssistant {
         // and displayed via updateGoalForTab() which uses window.instructorGoals
         console.log('Goal restoration skipped - goals are instructor-set and come from backend');
 
-        // Restore chat messages - but only if not already loaded from database
-        // This prevents old cached state from overwriting fresh database data
-        if (state.chatHistory && Array.isArray(state.chatHistory)) {
-            // Only restore from state if we haven't loaded from database yet
-            // Once database is loaded, it's the source of truth
-            if (!this.chatSystem.chatHistoryLoaded &&
-                !this.chatSystem.isLoadingHistory &&
-                !this.chatSystem.isLoadingFromDatabase) {
-                this.chatSystem.loadMessages(state.chatHistory);
-            } else {
-                console.log('Skipping chat history restore from state - database is source of truth');
-            }
-        }
+        // Chat messages ALWAYS load from database via loadChatHistory() - never restore from state.
+        // Restoring from state caused timestamps to flash correct then change to current time,
+        // because project.chatHistory could overwrite DB-loaded data.
     }
 
     // handleUserMessage is now handled by CompleteChatSystem

@@ -9,11 +9,11 @@ try {
     $dbman = $DB->get_manager();
     
     $tables = [
-        'writeassistdev',
-        'writeassistdev_metadata',
-        'writeassistdev_ideas', 
-        'writeassistdev_content',
-        'writeassistdev_chat'
+        'researchflow',
+        'researchflow_metadata',
+        'researchflow_ideas', 
+        'researchflow_content',
+        'researchflow_chat'
     ];
     
     echo "<h2>Table Existence Check:</h2>";
@@ -22,11 +22,11 @@ try {
         echo "<p>$table: " . ($exists ? "EXISTS" : "NOT EXISTS") . "</p>";
     }
     
-    // List all tables with writeassistdev in name
-    echo "<h2>All writeassistdev tables:</h2>";
+    // List all tables with researchflow in name
+    echo "<h2>All researchflow tables:</h2>";
     $allTables = $DB->get_tables();
     $writeassistTables = array_filter($allTables, function($table) {
-        return strpos($table, 'writeassistdev') !== false;
+        return strpos($table, 'researchflow') !== false;
     });
     foreach ($writeassistTables as $table) {
         echo "<p>$table</p>";
@@ -35,10 +35,10 @@ try {
     // Test basic queries
     echo "<h2>Test Queries:</h2>";
     
-    // Test writeassistdev table
+    // Test researchflow table
     try {
-        $activities = $DB->get_records('writeassistdev', null, '', 'id,name');
-        echo "<p>writeassistdev table: " . count($activities) . " records</p>";
+        $activities = $DB->get_records('researchflow', null, '', 'id,name');
+        echo "<p>researchflow table: " . count($activities) . " records</p>";
         if (!empty($activities)) {
             echo "<ul>";
             foreach ($activities as $activity) {
@@ -47,23 +47,23 @@ try {
             echo "</ul>";
         }
     } catch (Exception $e) {
-        echo "<p>writeassistdev query error: " . $e->getMessage() . "</p>";
+        echo "<p>researchflow query error: " . $e->getMessage() . "</p>";
     }
     
     // Test metadata table
     try {
-        $metadata = $DB->get_records('writeassistdev_metadata');
-        echo "<p>writeassistdev_metadata table: " . count($metadata) . " records</p>";
+        $metadata = $DB->get_records('researchflow_metadata');
+        echo "<p>researchflow_metadata table: " . count($metadata) . " records</p>";
     } catch (Exception $e) {
-        echo "<p>writeassistdev_metadata query error: " . $e->getMessage() . "</p>";
+        echo "<p>researchflow_metadata query error: " . $e->getMessage() . "</p>";
     }
     
     // Test chat table
     try {
-        $chat = $DB->get_records('writeassistdev_chat');
-        echo "<p>writeassistdev_chat table: " . count($chat) . " records</p>";
+        $chat = $DB->get_records('researchflow_chat');
+        echo "<p>researchflow_chat table: " . count($chat) . " records</p>";
     } catch (Exception $e) {
-        echo "<p>writeassistdev_chat query error: " . $e->getMessage() . "</p>";
+        echo "<p>researchflow_chat query error: " . $e->getMessage() . "</p>";
     }
     
 } catch (Exception $e) {

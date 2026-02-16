@@ -399,7 +399,7 @@ class TabManager {
         });
 
         // Restore last active tab from localStorage, or default to 'plan'
-        const savedTab = localStorage.getItem('writeassistdev_activeTab');
+        const savedTab = localStorage.getItem('researchflow_activeTab');
         const initialTab = savedTab || 'plan';
         console.log('Restoring tab from localStorage:', initialTab);
 
@@ -478,7 +478,7 @@ class TabManager {
         this.updateGoalForTab(tabId);
 
         // Save active tab to localStorage
-        localStorage.setItem('writeassistdev_activeTab', tabId);
+        localStorage.setItem('researchflow_activeTab', tabId);
 
         this.currentTab = tabId;
         console.log('=== Tab switch complete ===');

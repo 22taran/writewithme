@@ -6,8 +6,8 @@
 // (at your option) any later version.
 
 /**
- * Library functions for the writeassistdev module
- * @package    mod_writeassistdev
+ * Library functions for the researchflow module
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -15,13 +15,13 @@
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Adds a new instance of the writeassistdev module.
+ * Adds a new instance of the researchflow module.
  *
  * @param stdClass $data An object from the form in mod_form.php
- * @param mod_writeassistdev_mod_form $form The form instance (optional).
- * @return int The id of the newly inserted writeassistdev record
+ * @param mod_researchflow_mod_form $form The form instance (optional).
+ * @return int The id of the newly inserted researchflow record
  */
-function writeassistdev_add_instance($data, $form) {
+function researchflow_add_instance($data, $form) {
     global $DB, $COURSE;
 
     // Set default course if not provided.
@@ -88,23 +88,23 @@ function writeassistdev_add_instance($data, $form) {
         }
     }
 
-    // Insert the new writeassistdev instance.
-    $data->id = $DB->insert_record('writeassistdev', $data);
+    // Insert the new researchflow instance.
+    $data->id = $DB->insert_record('researchflow', $data);
 
     return $data->id;
 }
 
 /**
- * Updates an existing instance of the writeassistdev module.
+ * Updates an existing instance of the researchflow module.
  *
  * Given an object containing all the necessary data (defined in the form),
  * this function will update an existing instance with new data.
  *
  * @param stdClass $data An object from the form in mod_form.php
- * @param mod_writeassistdev_mod_form $form The form instance (optional).
+ * @param mod_researchflow_mod_form $form The form instance (optional).
  * @return boolean Success/Failure
  */
-function writeassistdev_update_instance($data, $form) {
+function researchflow_update_instance($data, $form) {
     global $DB;
 
     $data->timemodified = time();
@@ -165,13 +165,13 @@ function writeassistdev_update_instance($data, $form) {
         }
     }
 
-    $DB->update_record('writeassistdev', $data);
+    $DB->update_record('researchflow', $data);
 
     return true;
 }
 
 /**
- * Deletes an instance of the writeassistdev module from the database.
+ * Deletes an instance of the researchflow module from the database.
  *
  * Given an ID of an instance of this module, this function will
  * permanently delete the instance and any data that depends on it.
@@ -179,96 +179,132 @@ function writeassistdev_update_instance($data, $form) {
  * @param int $id Id of the module instance
  * @return boolean Success/Failure
  */
-function writeassistdev_delete_instance($id) {
+function researchflow_delete_instance($id) {
     global $DB;
 
-    if (!$writeassistdev = $DB->get_record('writeassistdev', ['id' => $id])) {
+    if (!$researchflow = $DB->get_record('researchflow', ['id' => $id])) {
         return false;
     }
 
-    // Delete related work records.
-    if ($DB->record_exists('writeassistdev_work', ['writeassistdevid' => $id])) {
-        $DB->delete_records('writeassistdev_work', ['writeassistdevid' => $id]);
-    }
+    $dbman = $DB->get_manager();
+    $tables = [
+        'researchflow_chat',
+        'researchflow_chat_sessions',
+        'researchflow_activity_log',
+        'researchflow_versions',
+        'researchflow_content',
+        'researchflow_ideas',
+        'researchflow_metadata',
+        'researchflow_work',
+    ];
 
-    // Delete files.
+    $transaction = $DB->start_delegated_transaction();
     try {
-        $cm = get_coursemodule_from_instance('writeassistdev', $id, $writeassistdev->course, false, MUST_EXIST);
-        $context = context_module::instance($cm->id);
+        // Delete from normalized tables (child tables first)
+        foreach ($tables as $tablename) {
+            if ($dbman->table_exists($tablename)) {
+                $DB->delete_records($tablename, ['researchflowid' => $id]);
+            }
+        }
+
+        // Delete files.
+        try {
+            $cm = get_coursemodule_from_instance('researchflow', $id, $researchflow->course, false, MUST_EXIST);
+            $context = context_module::instance($cm->id);
+        } catch (Exception $e) {
+            debugging("Course module record not found in researchflow_delete_instance; using course context. Error: " . $e->getMessage(), DEBUG_DEVELOPER);
+            $context = context_course::instance($researchflow->course);
+        }
+        $fs = get_file_storage();
+        $fs->delete_area_files($context->id);
+
+        $DB->delete_records('researchflow', ['id' => $id]);
+
+        $transaction->allow_commit();
+        return true;
     } catch (Exception $e) {
-        debugging("Course module record not found in writeassistdev_delete_instance; using course context. Error: " . $e->getMessage(), DEBUG_DEVELOPER);
-        $context = context_course::instance($writeassistdev->course);
+        $transaction->rollback($e);
+        throw $e;
     }
-    $fs = get_file_storage();
-    $fs->delete_area_files($context->id);
-
-    $DB->delete_records('writeassistdev', ['id' => $id]);
-
-    return true;
 }
 
 /**
- * Returns the icon URL for the writeassistdev module.
+ * Returns whether the module supports a given feature.
+ *
+ * @param string $feature FEATURE_xxx constant
+ * @return mixed True if the feature is supported, false if not, null if unknown
+ */
+function researchflow_supports($feature) {
+    switch ($feature) {
+        case FEATURE_BACKUP_MOODLE2:
+            return true;
+        default:
+            return null;
+    }
+}
+
+/**
+ * Returns the icon URL for the researchflow module.
  *
  * @return string The icon URL
  */
-function writeassistdev_get_icon() {
+function researchflow_get_icon() {
     global $CFG;
-    return $CFG->wwwroot . '/mod/writeassistdev/pix/icon.png';
+    return $CFG->wwwroot . '/mod/researchflow/pix/icon.png';
 }
 
 /**
- * Returns a list of view actions for the writeassistdev module.
+ * Returns a list of view actions for the researchflow module.
  *
- * @param stdClass $writeassistdev
+ * @param stdClass $researchflow
  * @return array of strings
  */
-function writeassistdev_get_view_actions() {
+function researchflow_get_view_actions() {
     return array('view');
 }
 
 /**
- * Returns a list of post actions for the writeassistdev module.
+ * Returns a list of post actions for the researchflow module.
  *
- * @param stdClass $writeassistdev
+ * @param stdClass $researchflow
  * @return array of strings
  */
-function writeassistdev_get_post_actions() {
+function researchflow_get_post_actions() {
     return array('add', 'update');
 }
 
 /**
- * Extends the global navigation tree by adding writeassistdev nodes if there is a corresponding capability.
+ * Extends the global navigation tree by adding researchflow nodes if there is a corresponding capability.
  *
- * @param navigation_node $writeassistdevnode
+ * @param navigation_node $researchflownode
  * @param stdClass $course
  * @param stdClass $cm
- * @param cm_info $writeassistdev
+ * @param cm_info $researchflow
  */
-function writeassistdev_extend_navigation(navigation_node $writeassistdevnode, stdClass $course, stdClass $cm, cm_info $writeassistdev) {
+function researchflow_extend_navigation(navigation_node $researchflownode, stdClass $course, stdClass $cm, cm_info $researchflow) {
     // Add navigation items here if needed.
 }
 
 /**
- * Extends the settings navigation with the writeassistdev settings.
+ * Extends the settings navigation with the researchflow settings.
  *
  * @param settings_navigation $settingsnav
- * @param navigation_node $writeassistdevnode
+ * @param navigation_node $researchflownode
  */
-function writeassistdev_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $writeassistdevnode) {
+function researchflow_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $researchflownode) {
     // Add settings navigation items here if needed.
 }
 
 /**
- * Returns a list of page types for the writeassistdev module.
+ * Returns a list of page types for the researchflow module.
  *
  * @param string $pagetype Current page type
  * @param stdClass $parentcontext Block's parent context
  * @param stdClass $currentcontext Current context of block
  * @return array
  */
-function writeassistdev_page_type_list($pagetype, $parentcontext, $currentcontext) {
-    $module_pagetype = array('mod-writeassistdev-*' => get_string('page-mod-writeassistdev-x', 'mod_writeassistdev'));
+function researchflow_page_type_list($pagetype, $parentcontext, $currentcontext) {
+    $module_pagetype = array('mod-researchflow-*' => get_string('page-mod-researchflow-x', 'mod_researchflow'));
     return $module_pagetype;
 }
 
@@ -280,47 +316,47 @@ function writeassistdev_page_type_list($pagetype, $parentcontext, $currentcontex
  * @param array $filter
  * @return array
  */
-function writeassistdev_check_updates_since(cm_info $cm, $from, $filter = array()) {
+function researchflow_check_updates_since(cm_info $cm, $from, $filter = array()) {
     $updates = array();
     return $updates;
 }
 
 /**
- * Returns the FontAwesome icon map for the writeassistdev module.
+ * Returns the FontAwesome icon map for the researchflow module.
  *
  * @return array
  */
-function writeassistdev_get_fontawesome_icon_map() {
+function researchflow_get_fontawesome_icon_map() {
     return array(
-        'mod_writeassistdev:icon' => 'fa-pencil',
+        'mod_researchflow:icon' => 'fa-pencil',
     );
 }
 
 /**
  * Save project data to database
- * @param int $writeassistdevid The activity instance ID
+ * @param int $researchflowid The activity instance ID
  * @param int $userid The user ID
  * @param string $projectdata JSON string of project data
  * @return bool Success status
  */
-function writeassistdev_save_project($writeassistdevid, $userid, $projectdata) {
+function researchflow_save_project($researchflowid, $userid, $projectdata) {
     global $DB;
     
     try {
-        error_log('Old save method: Starting save for user ' . $userid . ' activity ' . $writeassistdevid);
+        error_log('Old save method: Starting save for user ' . $userid . ' activity ' . $researchflowid);
         
         // Basic validation
-        if (empty($writeassistdevid) || empty($userid) || empty($projectdata)) {
+        if (empty($researchflowid) || empty($userid) || empty($projectdata)) {
             error_log('Old save method: Validation failed - empty parameters');
             return false;
         }
         
         // Check if record exists
-        $record = $DB->get_record('writeassistdev_work', 
-            array('writeassistdevid' => $writeassistdevid, 'userid' => $userid));
+        $record = $DB->get_record('researchflow_work', 
+            array('researchflowid' => $researchflowid, 'userid' => $userid));
         
         $data = array(
-            'writeassistdevid' => $writeassistdevid,
+            'researchflowid' => $researchflowid,
             'userid' => $userid,
             'content' => $projectdata,
             'timemodified' => time()
@@ -329,13 +365,13 @@ function writeassistdev_save_project($writeassistdevid, $userid, $projectdata) {
         if ($record) {
             // Update existing record
             $data['id'] = $record->id;
-            $result = $DB->update_record('writeassistdev_work', $data);
+            $result = $DB->update_record('researchflow_work', $data);
             error_log('Old save method: Update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
             return $result;
         } else {
             // Create new record
             $data['timecreated'] = time();
-            $result = $DB->insert_record('writeassistdev_work', $data);
+            $result = $DB->insert_record('researchflow_work', $data);
             error_log('Old save method: Insert result: ' . ($result ? 'SUCCESS (ID: ' . $result . ')' : 'FAILED'));
             return $result;
         }
@@ -347,35 +383,35 @@ function writeassistdev_save_project($writeassistdevid, $userid, $projectdata) {
 
 /**
  * Load project data from database
- * @param int $writeassistdevid The activity instance ID
+ * @param int $researchflowid The activity instance ID
  * @param int $userid The user ID
  * @return string|false JSON string of project data or false if not found
  */
-function writeassistdev_load_project($writeassistdevid, $userid) {
+function researchflow_load_project($researchflowid, $userid) {
     global $DB;
     
     // Basic validation
-    if (empty($writeassistdevid) || empty($userid)) {
+    if (empty($researchflowid) || empty($userid)) {
         return false;
     }
     
-    $record = $DB->get_record('writeassistdev_work', 
-        array('writeassistdevid' => $writeassistdevid, 'userid' => $userid));
+    $record = $DB->get_record('researchflow_work', 
+        array('researchflowid' => $researchflowid, 'userid' => $userid));
     
     return $record ? $record->content : false;
 }
 
 /**
  * Delete project data from database
- * @param int $writeassistdevid The activity instance ID
+ * @param int $researchflowid The activity instance ID
  * @param int $userid The user ID
  * @return bool Success status
  */
-function writeassistdev_delete_project($writeassistdevid, $userid) {
+function researchflow_delete_project($researchflowid, $userid) {
     global $DB;
     
-    return $DB->delete_records('writeassistdev_work', 
-        array('writeassistdevid' => $writeassistdevid, 'userid' => $userid));
+    return $DB->delete_records('researchflow_work', 
+        array('researchflowid' => $researchflowid, 'userid' => $userid));
 }
 
 /**
@@ -384,14 +420,14 @@ function writeassistdev_delete_project($writeassistdevid, $userid) {
  * @param cm_info $coursemodule
  * @return cached_cm_info|null
  */
-function writeassistdev_get_coursemodule_info($coursemodule) {
+function researchflow_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    if ($writeassistdev = $DB->get_record('writeassistdev', array('id' => $coursemodule->instance), 'id, name, intro, introformat')) {
+    if ($researchflow = $DB->get_record('researchflow', array('id' => $coursemodule->instance), 'id, name, intro, introformat')) {
         $info = new cached_cm_info();
-        $info->name = $writeassistdev->name;
+        $info->name = $researchflow->name;
         if ($coursemodule->showdescription) {
-            $info->content = format_module_intro('writeassistdev', $writeassistdev, $coursemodule->id, false);
+            $info->content = format_module_intro('researchflow', $researchflow, $coursemodule->id, false);
         }
         return $info;
     } else {
@@ -403,49 +439,51 @@ function writeassistdev_get_coursemodule_info($coursemodule) {
 
 /**
  * Load ONLY chat history (fast, for initialization)
- * @param int $writeassistdevid Activity ID
+ * @param int $researchflowid Activity ID
  * @param int $userid User ID
+ * @param int|null $limit Maximum number of messages to return
+ * @param string|null $sessionId Optional session ID to filter by
  * @return array Array of chat messages
  */
-function writeassistdev_load_chat_history_only($writeassistdevid, $userid, $limit = null) {
-    $dataManager = new \mod_writeassistdev\data\ProjectDataManager();
-    return $dataManager->loadChatHistoryOnly($writeassistdevid, $userid, $limit);
+function researchflow_load_chat_history_only($researchflowid, $userid, $limit = null, $sessionId = null) {
+    $dataManager = new \mod_researchflow\data\ProjectDataManager();
+    return $dataManager->loadChatHistoryOnly($researchflowid, $userid, $limit, $sessionId);
 }
 
 /**
  * Load project data using new normalized schema
- * @param int $writeassistdevid Activity ID
+ * @param int $researchflowid Activity ID
  * @param int $userid User ID
  * @return array|false Project data or false if not found
  */
-function writeassistdev_load_project_normalized($writeassistdevid, $userid) {
-    $dataManager = new \mod_writeassistdev\data\ProjectDataManager();
-    return $dataManager->loadProject($writeassistdevid, $userid);
+function researchflow_load_project_normalized($researchflowid, $userid) {
+    $dataManager = new \mod_researchflow\data\ProjectDataManager();
+    return $dataManager->loadProject($researchflowid, $userid);
 }
 
 /**
  * Save project data using new normalized schema
- * @param int $writeassistdevid Activity ID
+ * @param int $researchflowid Activity ID
  * @param int $userid User ID
  * @param array $projectdata Project data array
  * @return bool Success status
  */
-function writeassistdev_save_project_normalized($writeassistdevid, $userid, $projectdata) {
-    $dataManager = new \mod_writeassistdev\data\ProjectDataManager();
-    return $dataManager->saveProject($writeassistdevid, $userid, $projectdata);
+function researchflow_save_project_normalized($researchflowid, $userid, $projectdata) {
+    $dataManager = new \mod_researchflow\data\ProjectDataManager();
+    return $dataManager->saveProject($researchflowid, $userid, $projectdata);
 }
 
 /**
  * Check if project has been migrated to normalized schema
- * @param int $writeassistdevid Activity ID
+ * @param int $researchflowid Activity ID
  * @param int $userid User ID
  * @return bool True if migrated, false otherwise
  */
-function writeassistdev_is_migrated($writeassistdevid, $userid) {
+function researchflow_is_migrated($researchflowid, $userid) {
     global $DB;
     
-    $metadata = $DB->get_record('writeassistdev_metadata', [
-        'writeassistdevid' => $writeassistdevid,
+    $metadata = $DB->get_record('researchflow_metadata', [
+        'researchflowid' => $researchflowid,
         'userid' => $userid
     ]);
     
@@ -454,58 +492,58 @@ function writeassistdev_is_migrated($writeassistdevid, $userid) {
 
 /**
  * Migrate project data from JSON blob to normalized schema
- * @param int $writeassistdevid Activity ID
+ * @param int $researchflowid Activity ID
  * @param int $userid User ID
  * @return array Migration result
  */
-function writeassistdev_migrate_project($writeassistdevid, $userid) {
-    $migrator = new \mod_writeassistdev\migration\DataMigrator();
-    return $migrator->migrate($writeassistdevid, $userid);
+function researchflow_migrate_project($researchflowid, $userid) {
+    $migrator = new \mod_researchflow\migration\DataMigrator();
+    return $migrator->migrate($researchflowid, $userid);
 }
 
 /**
  * Rollback migration for a specific user and activity
- * @param int $writeassistdevid Activity ID
+ * @param int $researchflowid Activity ID
  * @param int $userid User ID
  * @return array Rollback result
  */
-function writeassistdev_rollback_migration($writeassistdevid, $userid) {
-    $migrator = new \mod_writeassistdev\migration\DataMigrator();
-    return $migrator->rollback($writeassistdevid, $userid);
+function researchflow_rollback_migration($researchflowid, $userid) {
+    $migrator = new \mod_researchflow\migration\DataMigrator();
+    return $migrator->rollback($researchflowid, $userid);
 }
 
 /**
  * Get migration status for all projects
  * @return array Migration status information
  */
-function writeassistdev_get_migration_status() {
+function researchflow_get_migration_status() {
     global $DB;
     
     // Count records in old format
-    $oldRecords = $DB->count_records('writeassistdev_work');
+    $oldRecords = $DB->count_records('researchflow_work');
     
     // Count records in new format
-    $newMetadata = $DB->count_records('writeassistdev_metadata');
-    $newIdeas = $DB->count_records('writeassistdev_ideas');
-    $newContent = $DB->count_records('writeassistdev_content');
-    $newChat = $DB->count_records('writeassistdev_chat');
+    $newMetadata = $DB->count_records('researchflow_metadata');
+    $newIdeas = $DB->count_records('researchflow_ideas');
+    $newContent = $DB->count_records('researchflow_content');
+    $newChat = $DB->count_records('researchflow_chat');
     
     // Check for data integrity
     $orphanedIdeas = $DB->count_records_sql("
-        SELECT COUNT(*) FROM {writeassistdev_ideas} i 
-        LEFT JOIN {writeassistdev} w ON i.writeassistdevid = w.id 
+        SELECT COUNT(*) FROM {researchflow_ideas} i 
+        LEFT JOIN {researchflow} w ON i.researchflowid = w.id 
         WHERE w.id IS NULL
     ");
     
     $orphanedContent = $DB->count_records_sql("
-        SELECT COUNT(*) FROM {writeassistdev_content} c 
-        LEFT JOIN {writeassistdev} w ON c.writeassistdevid = w.id 
+        SELECT COUNT(*) FROM {researchflow_content} c 
+        LEFT JOIN {researchflow} w ON c.researchflowid = w.id 
         WHERE w.id IS NULL
     ");
     
     $missingMetadata = $DB->count_records_sql("
-        SELECT COUNT(*) FROM {writeassistdev_work} w 
-        LEFT JOIN {writeassistdev_metadata} m ON w.writeassistdevid = m.writeassistdevid AND w.userid = m.userid 
+        SELECT COUNT(*) FROM {researchflow_work} w 
+        LEFT JOIN {researchflow_metadata} m ON w.researchflowid = m.researchflowid AND w.userid = m.userid 
         WHERE m.id IS NULL
     ");
     
@@ -527,10 +565,10 @@ function writeassistdev_get_migration_status() {
  * @param string $templateId Template ID
  * @return array|false Template data or false if not found
  */
-function writeassistdev_load_template($templateId) {
+function researchflow_load_template($templateId) {
     global $CFG;
     
-    $templateFile = $CFG->dirroot . '/mod/writeassistdev/data/templates/' . $templateId . '.json';
+    $templateFile = $CFG->dirroot . '/mod/researchflow/data/templates/' . $templateId . '.json';
     
     if (!file_exists($templateFile)) {
         return false;
@@ -551,7 +589,7 @@ function writeassistdev_load_template($templateId) {
  * @param array $logs Array of activity log records
  * @return array Statistics array
  */
-function writeassistdev_calculate_activity_stats($logs) {
+function researchflow_calculate_activity_stats($logs) {
     if (empty($logs)) {
         return [
             'total_actions' => 0,

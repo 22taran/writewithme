@@ -7,12 +7,12 @@
 
 /**
  * Project data parser for migration
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_writeassistdev\migration;
+namespace mod_researchflow\migration;
 
 defined('MOODLE_INTERNAL') || die();
 

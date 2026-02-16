@@ -7,23 +7,23 @@
 
 /**
  * Language strings for AI Writing Assistant module
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['modulename'] = 'AI Writing Assistant';
-$string['modulenameplural'] = 'AI Writing Assistants';
-$string['modulename_help'] = 'The AI Writing Assistant module provides students with an AI-powered tool to help with writing tasks, including planning, writing, and editing.';
-$string['pluginname'] = 'AI Writing Assistant';
+$string['modulename'] = 'ResearchFlow';
+$string['modulenameplural'] = 'ResearchFlows';
+$string['modulename_help'] = 'The ResearchFlow module provides students with an AI-powered tool to help with writing tasks, including planning, writing, and editing.';
+$string['pluginname'] = 'ResearchFlow';
 
 // Capability strings
-$string['writeassistdev:addinstance'] = 'Add a new AI Writing Assistant';
-$string['writeassistdev:view'] = 'View AI Writing Assistant';
-$string['writeassistdev:submit'] = 'Submit work to AI Writing Assistant';
+$string['researchflow:addinstance'] = 'Add a new ResearchFlow';
+$string['researchflow:view'] = 'View ResearchFlow';
+$string['researchflow:submit'] = 'Submit work to ResearchFlow';
 
 // Activity view strings
-$string['ai_writing_assistant'] = 'AI Writing Assistant';
+$string['ai_writing_assistant'] = 'ResearchFlow';
 $string['plan_organize'] = 'Plan & Organize';
 $string['write'] = 'Write';
 $string['edit_revise'] = 'Edit & Revise';
@@ -66,13 +66,13 @@ $string['outline_sections'] = 'Outline Sections (JSON)';
 $string['outline_sections_help'] = 'Enter the outline structure as JSON. Each section should include: id, title, description, required (true/false), and allowMultiple (true/false).';
 
 // Settings strings
-$string['settingsdescription'] = 'Configure settings for the AI Writing Assistant module.';
+$string['settingsdescription'] = 'Configure settings for the ResearchFlow module.';
 $string['api_endpoint'] = 'API Endpoint';
 $string['api_endpoint_desc'] = 'The URL endpoint for the AI API service (required). Example: http://your-server:5004. AI features will not work until this is configured.';
 $string['api_key'] = 'API Key';
 $string['api_key_desc'] = 'The API key for authenticating with the AI service.';
 $string['enabled'] = 'Enabled';
-$string['enabled_desc'] = 'Enable or disable the AI Writing Assistant module.';
+$string['enabled_desc'] = 'Enable or disable the ResearchFlow module.';
 
 // Error messages
 $string['error_no_api_key'] = 'API key not configured. Please contact your administrator.';
@@ -87,4 +87,4 @@ $string['success_submitted'] = 'Your work has been submitted successfully.';
 $string['eventcoursemoduleviewed'] = 'Course module viewed';
 
 // Page type strings
-$string['page-mod-writeassistdev-x'] = 'Any AI Writing Assistant module page';
+$string['page-mod-researchflow-x'] = 'Any ResearchFlow module page';

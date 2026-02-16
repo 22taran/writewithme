@@ -7,42 +7,42 @@
 
 /**
  * Activity Report - Shows student writing activity analytics
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
+require_once($CFG->dirroot . '/mod/researchflow/lib.php');
 
 $id = required_param('id', PARAM_INT);
 $userid = optional_param('userid', 0, PARAM_INT);
 
-if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)) {
+if (!$cm = get_coursemodule_from_id('researchflow', $id, 0, false, MUST_EXIST)) {
     print_error('invalidcoursemodule');
 }
 
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-$instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
+$instance = $DB->get_record('researchflow', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('mod/writeassistdev:addinstance', $context); // Instructor only
+require_capability('mod/researchflow:addinstance', $context); // Instructor only
 
-$PAGE->set_url(new moodle_url('/mod/writeassistdev/activity_report.php', ['id' => $cm->id, 'userid' => $userid]));
+$PAGE->set_url(new moodle_url('/mod/researchflow/activity_report.php', ['id' => $cm->id, 'userid' => $userid]));
 $PAGE->set_title(format_string($instance->name) . ' - Activity Report');
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('incourse');
 
 // Load CSS
-$PAGE->requires->css(new moodle_url('/mod/writeassistdev/styles/activity-report.css'));
+$PAGE->requires->css(new moodle_url('/mod/researchflow/styles/activity-report.css'));
 
 echo $OUTPUT->header();
 
 // Get all enrolled students if no specific user
-$students = get_enrolled_users($context, 'mod/writeassistdev:submit');
+$students = get_enrolled_users($context, 'mod/researchflow:submit');
 
 if ($userid > 0 && isset($students[$userid])) {
     // Show report for specific student
@@ -58,7 +58,7 @@ echo $OUTPUT->footer();
 /**
  * Display activity report for a specific student
  */
-function displayStudentReport($student, $writeassistdevid, $cm) {
+function displayStudentReport($student, $researchflowid, $cm) {
     global $DB, $OUTPUT, $PAGE;
     
     echo '<div class="activity-report-container">';
@@ -72,14 +72,14 @@ function displayStudentReport($student, $writeassistdevid, $cm) {
     echo '</div>';
     echo '</div>';
     echo '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">';
-    echo '<a href="' . new moodle_url('/mod/writeassistdev/export_activity.php', ['id' => $cm->id, 'userid' => $student->id]) . '" class="btn btn-success" title="Export this student\'s raw activity data as CSV">📊 Export Raw Data (CSV)</a>';
-    echo '<a href="' . new moodle_url('/mod/writeassistdev/activity_report.php', ['id' => $cm->id]) . '" class="btn btn-secondary">Back to All Students</a>';
+    echo '<a href="' . new moodle_url('/mod/researchflow/export_activity.php', ['id' => $cm->id, 'userid' => $student->id]) . '" class="btn btn-success" title="Export this student\'s raw activity data as CSV">📊 Export Raw Data (CSV)</a>';
+    echo '<a href="' . new moodle_url('/mod/researchflow/activity_report.php', ['id' => $cm->id]) . '" class="btn btn-secondary">Back to All Students</a>';
     echo '</div>';
     echo '</div>';
     
     // Get activity logs for this student
-    $logs = $DB->get_records('writeassistdev_activity_log', [
-        'writeassistdevid' => $writeassistdevid,
+    $logs = $DB->get_records('researchflow_activity_log', [
+        'researchflowid' => $researchflowid,
         'userid' => $student->id
     ], 'timestamp DESC', '*', 0, 1000); // Limit to 1000 most recent
     
@@ -89,7 +89,7 @@ function displayStudentReport($student, $writeassistdevid, $cm) {
     }
     
     // Calculate statistics
-    $stats = writeassistdev_calculate_activity_stats($logs);
+    $stats = researchflow_calculate_activity_stats($logs);
     
     // Display statistics
     echo '<div class="activity-stats">';
@@ -184,15 +184,15 @@ function displayStudentReport($student, $writeassistdevid, $cm) {
 /**
  * Display list of all students with activity summary
  */
-function displayStudentList($students, $writeassistdevid, $cm) {
+function displayStudentList($students, $researchflowid, $cm) {
     global $DB, $OUTPUT, $PAGE;
     
     echo '<div class="activity-report-container">';
     echo '<div class="report-header">';
     echo '<h2>Student Activity Reports</h2>';
     echo '<div style="display: flex; gap: 8px; flex-wrap: wrap;">';
-    echo '<a href="' . new moodle_url('/mod/writeassistdev/export_activity.php', ['id' => $cm->id]) . '" class="btn btn-success" title="Export all students\' raw activity data as CSV">📊 Export All Activity Data (CSV)</a>';
-    echo '<a href="' . new moodle_url('/mod/writeassistdev/submissions.php', ['id' => $cm->id]) . '" class="btn btn-secondary">Back to Submissions</a>';
+    echo '<a href="' . new moodle_url('/mod/researchflow/export_activity.php', ['id' => $cm->id]) . '" class="btn btn-success" title="Export all students\' raw activity data as CSV">📊 Export All Activity Data (CSV)</a>';
+    echo '<a href="' . new moodle_url('/mod/researchflow/submissions.php', ['id' => $cm->id]) . '" class="btn btn-secondary">Back to Submissions</a>';
     echo '</div>';
     echo '</div>';
     
@@ -218,12 +218,12 @@ function displayStudentList($students, $writeassistdevid, $cm) {
     echo '<tbody>';
     
     foreach ($students as $student) {
-        $logs = $DB->get_records('writeassistdev_activity_log', [
-            'writeassistdevid' => $writeassistdevid,
+        $logs = $DB->get_records('researchflow_activity_log', [
+            'researchflowid' => $researchflowid,
             'userid' => $student->id
         ], 'timestamp DESC', '*', 0, 1000);
         
-        $stats = writeassistdev_calculate_activity_stats($logs);
+        $stats = researchflow_calculate_activity_stats($logs);
         
         echo '<tr>';
         echo '<td class="student-cell">';
@@ -238,8 +238,8 @@ function displayStudentList($students, $writeassistdevid, $cm) {
         echo '<td>' . ($stats['last_activity'] ? userdate($stats['last_activity']) : 'Never') . '</td>';
         echo '<td>';
         echo '<div style="display: flex; gap: 4px; flex-wrap: wrap;">';
-        echo '<a href="' . new moodle_url('/mod/writeassistdev/activity_report.php', ['id' => $cm->id, 'userid' => $student->id]) . '" class="btn btn-sm btn-primary">View Report</a>';
-        echo '<a href="' . new moodle_url('/mod/writeassistdev/export_activity.php', ['id' => $cm->id, 'userid' => $student->id]) . '" class="btn btn-sm btn-success" title="Export raw data">📊 CSV</a>';
+        echo '<a href="' . new moodle_url('/mod/researchflow/activity_report.php', ['id' => $cm->id, 'userid' => $student->id]) . '" class="btn btn-sm btn-primary">View Report</a>';
+        echo '<a href="' . new moodle_url('/mod/researchflow/export_activity.php', ['id' => $cm->id, 'userid' => $student->id]) . '" class="btn btn-sm btn-success" title="Export raw data">📊 CSV</a>';
         echo '</div>';
         echo '</td>';
         echo '</tr>';

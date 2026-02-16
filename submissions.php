@@ -7,42 +7,42 @@
 
 /**
  * AI Writing Assistant submissions page
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
-require_once($CFG->dirroot . '/mod/writeassistdev/classes/data/ProjectDataManager.php');
+require_once($CFG->dirroot . '/mod/researchflow/lib.php');
+require_once($CFG->dirroot . '/mod/researchflow/classes/data/ProjectDataManager.php');
 
 $id = required_param('id', PARAM_INT);
 
-if (!$cm = get_coursemodule_from_id('writeassistdev', $id, 0, false, MUST_EXIST)) {
+if (!$cm = get_coursemodule_from_id('researchflow', $id, 0, false, MUST_EXIST)) {
     print_error('invalidcoursemodule');
 }
 
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-$instance = $DB->get_record('writeassistdev', ['id' => $cm->instance], '*', MUST_EXIST);
+$instance = $DB->get_record('researchflow', ['id' => $cm->instance], '*', MUST_EXIST);
 
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
-require_capability('mod/writeassistdev:addinstance', $context); // Instructor only
+require_capability('mod/researchflow:addinstance', $context); // Instructor only
 
-$PAGE->set_url(new moodle_url('/mod/writeassistdev/submissions.php', ['id' => $cm->id]));
+$PAGE->set_url(new moodle_url('/mod/researchflow/submissions.php', ['id' => $cm->id]));
 $PAGE->set_title(format_string($instance->name) . ' - Submissions');
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 $PAGE->set_pagelayout('incourse');
 
 // Load CSS
-$PAGE->requires->css(new moodle_url('/mod/writeassistdev/styles/submissions.css'));
+$PAGE->requires->css(new moodle_url('/mod/researchflow/styles/submissions.css'));
 
 echo $OUTPUT->header();
 
 // Get submissions
-$dataManager = new \mod_writeassistdev\data\ProjectDataManager();
+$dataManager = new \mod_researchflow\data\ProjectDataManager();
 $submissions = $dataManager->getAllSubmissions($instance->id);
 
 ?>
@@ -50,10 +50,10 @@ $submissions = $dataManager->getAllSubmissions($instance->id);
     <div class="submissions-header">
         <h2>Student Submissions</h2>
         <div class="header-actions">
-            <a href="<?php echo new moodle_url('/mod/writeassistdev/export_activity.php', ['id' => $cm->id]); ?>" class="btn btn-success" title="Export all activity tracking data as CSV">
+            <a href="<?php echo new moodle_url('/mod/researchflow/export_activity.php', ['id' => $cm->id]); ?>" class="btn btn-success" title="Export all activity tracking data as CSV">
                 📊 Export Activity Data (CSV)
             </a>
-            <a href="<?php echo new moodle_url('/mod/writeassistdev/view.php', ['id' => $cm->id]); ?>" class="btn btn-secondary">Back to Activity</a>
+            <a href="<?php echo new moodle_url('/mod/researchflow/view.php', ['id' => $cm->id]); ?>" class="btn btn-secondary">Back to Activity</a>
         </div>
     </div>
 
@@ -85,9 +85,9 @@ $submissions = $dataManager->getAllSubmissions($instance->id);
                             <td><?php echo $submission->edit_word_count; ?></td>
                             <td>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <a href="<?php echo new moodle_url('/mod/writeassistdev/submission_view.php', ['id' => $cm->id, 'userid' => $submission->userid]); ?>" class="btn btn-sm btn-primary">View Document</a>
-                                    <a href="<?php echo new moodle_url('/mod/writeassistdev/chat_history.php', ['id' => $cm->id, 'userid' => $submission->userid]); ?>" class="btn btn-sm btn-info">Chat History</a>
-                                    <a href="<?php echo new moodle_url('/mod/writeassistdev/export_activity.php', ['id' => $cm->id, 'userid' => $submission->userid]); ?>" class="btn btn-sm btn-success" title="Export this student's activity data">📊 Export Data</a>
+                                    <a href="<?php echo new moodle_url('/mod/researchflow/submission_view.php', ['id' => $cm->id, 'userid' => $submission->userid]); ?>" class="btn btn-sm btn-primary">View Document</a>
+                                    <a href="<?php echo new moodle_url('/mod/researchflow/chat_history.php', ['id' => $cm->id, 'userid' => $submission->userid]); ?>" class="btn btn-sm btn-info">Chat History</a>
+                                    <a href="<?php echo new moodle_url('/mod/researchflow/export_activity.php', ['id' => $cm->id, 'userid' => $submission->userid]); ?>" class="btn btn-sm btn-success" title="Export this student's activity data">📊 Export Data</a>
                                 </div>
                             </td>
                         </tr>

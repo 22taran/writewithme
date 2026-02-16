@@ -6,24 +6,24 @@
 // (at your option) any later version.
 
 /**
- * Define the restore_writeassistdev_activity_task class
- * @package    mod_writeassistdev
+ * Define the restore_researchflow_activity_task class
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/mod/writeassistdev/backup/moodle2/restore_writeassistdev_stepslib.php');
+require_once($CFG->dirroot . '/mod/researchflow/backup/moodle2/restore_researchflow_stepslib.php');
 
 /**
- * writeassistdev restore task that provides all the settings and steps to perform one
+ * researchflow restore task that provides all the settings and steps to perform one
  * complete restore of the activity
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class restore_writeassistdev_activity_task extends restore_activity_task {
+class restore_researchflow_activity_task extends restore_activity_task {
 
     /**
      * Define (add) particular settings this activity can have
@@ -36,8 +36,8 @@ class restore_writeassistdev_activity_task extends restore_activity_task {
      * Define (add) particular steps this activity can have
      */
     protected function define_my_steps() {
-        // writeassistdev only has one structure step
-        $this->add_step(new restore_writeassistdev_activity_structure_step('writeassistdev_activity'));
+        // researchflow only has one structure step
+        $this->add_step(new restore_researchflow_activity_structure_step('researchflow_structure', 'researchflow.xml'));
     }
 
     /**
@@ -47,7 +47,7 @@ class restore_writeassistdev_activity_task extends restore_activity_task {
     static public function define_decode_contents() {
         $contents = array();
 
-        $contents[] = new restore_decode_content('writeassistdev', array('intro'), 'writeassistdev');
+        $contents[] = new restore_decode_content('researchflow', array('intro'), 'researchflow');
 
         return $contents;
     }
@@ -59,8 +59,8 @@ class restore_writeassistdev_activity_task extends restore_activity_task {
     static public function define_decode_rules() {
         $rules = array();
 
-        $rules[] = new restore_decode_rule('writeassistdevVIEWBYID', '/mod/writeassistdev/view.php?id=$1', 'course_module');
-        $rules[] = new restore_decode_rule('writeassistdevINDEX', '/mod/writeassistdev/index.php?id=$1', 'course');
+        $rules[] = new restore_decode_rule('RESEARCHFLOWVIEWBYID', '/mod/researchflow/view.php?id=$1', 'course_module');
+        $rules[] = new restore_decode_rule('RESEARCHFLOWINDEX', '/mod/researchflow/index.php?id=$1', 'course');
 
         return $rules;
     }
@@ -68,15 +68,15 @@ class restore_writeassistdev_activity_task extends restore_activity_task {
     /**
      * Define the restore log rules that will be applied
      * by the {@link restore_logs_processor} when restoring
-     * writeassistdev logs. It must return one array
+     * researchflow logs. It must return one array
      * of {@link restore_log_rule} objects
      */
     static public function define_restore_log_rules() {
         $rules = array();
 
-        $rules[] = new restore_log_rule('writeassistdev', 'add', 'view.php?id={course_module}', '{writeassistdev}');
-        $rules[] = new restore_log_rule('writeassistdev', 'update', 'view.php?id={course_module}', '{writeassistdev}');
-        $rules[] = new restore_log_rule('writeassistdev', 'view', 'view.php?id={course_module}', '{writeassistdev}');
+        $rules[] = new restore_log_rule('researchflow', 'add', 'view.php?id={course_module}', '{researchflow}');
+        $rules[] = new restore_log_rule('researchflow', 'update', 'view.php?id={course_module}', '{researchflow}');
+        $rules[] = new restore_log_rule('researchflow', 'view', 'view.php?id={course_module}', '{researchflow}');
 
         return $rules;
     }
@@ -90,7 +90,7 @@ class restore_writeassistdev_activity_task extends restore_activity_task {
     static public function define_restore_log_rules_for_course() {
         $rules = array();
 
-        $rules[] = new restore_log_rule('writeassistdev', 'view all', 'index.php?id={course}', null);
+        $rules[] = new restore_log_rule('researchflow', 'view all', 'index.php?id={course}', null);
 
         return $rules;
     }

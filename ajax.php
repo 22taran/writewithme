@@ -6,9 +6,9 @@
 // (at your option) any later version.
 
 /**
- * Simplified AJAX handler for writeassistdev module
+ * Simplified AJAX handler for researchflow module
  * Directly calls lib.php functions without unnecessary validation layers
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -28,7 +28,7 @@ ob_start();
 
 try {
     require_once('../../config.php');
-    require_once($CFG->dirroot . '/mod/writeassistdev/lib.php');
+    require_once($CFG->dirroot . '/mod/researchflow/lib.php');
 } catch (Exception $e) {
     ob_end_clean();
     header('Content-Type: application/json; charset=utf-8');
@@ -66,14 +66,14 @@ try {
     }
 
     // Get course module and context
-    $cm = get_coursemodule_from_id('writeassistdev', $cmid, 0, false, MUST_EXIST);
+    $cm = get_coursemodule_from_id('researchflow', $cmid, 0, false, MUST_EXIST);
     $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-    $writeassistdev = $DB->get_record('writeassistdev', array('id' => $cm->instance), '*', MUST_EXIST);
+    $researchflow = $DB->get_record('researchflow', array('id' => $cm->instance), '*', MUST_EXIST);
 
     // Set up context
     $context = context_module::instance($cm->id);
     require_login($course, true, $cm);
-    require_capability('mod/writeassistdev:view', $context);
+    require_capability('mod/researchflow:view', $context);
 } catch (Exception $e) {
     error_log('ajax.php: Error during initialization: ' . $e->getMessage());
     error_log('ajax.php: Exception trace: ' . $e->getTraceAsString());
@@ -128,17 +128,17 @@ try {
                 error_log('ajax.php: save_project - removedSections: ' . json_encode($decoded['plan']['removedSections'] ?? []));
                 
                 // Try normalized schema first
-                $success = writeassistdev_save_project_normalized($writeassistdev->id, $USER->id, $decoded);
+                $success = researchflow_save_project_normalized($researchflow->id, $USER->id, $decoded);
                 
                 // If normalized save fails, fall back to old method
                 // If normalized save fails, fall back to old method
                 if (!$success) {
                     error_log('ajax.php: Normalized save failed, falling back to old method');
-                    $success = writeassistdev_save_project($writeassistdev->id, $USER->id, $projectdata);
+                    $success = researchflow_save_project($researchflow->id, $USER->id, $projectdata);
                 }
                 
                 if (!$success) {
-                    error_log('ajax.php: Save project failed for user ' . $USER->id . ' activity ' . $writeassistdev->id);
+                    error_log('ajax.php: Save project failed for user ' . $USER->id . ' activity ' . $researchflow->id);
                     echo json_encode(['success' => false, 'error' => 'Save operation returned false']);
                 } else {
                     error_log('ajax.php: Save project SUCCESS');
@@ -167,11 +167,11 @@ try {
             
         case 'load_project':
             // Try normalized schema first
-            $projectdata = writeassistdev_load_project_normalized($writeassistdev->id, $USER->id);
+            $projectdata = researchflow_load_project_normalized($researchflow->id, $USER->id);
             
             // If normalized load fails, fall back to old method
             if ($projectdata === false) {
-                $projectdata = writeassistdev_load_project($writeassistdev->id, $USER->id);
+                $projectdata = researchflow_load_project($researchflow->id, $USER->id);
                 if ($projectdata !== false) {
                     $projectdata = json_decode($projectdata, true);
                 }
@@ -187,15 +187,16 @@ try {
         case 'load_chat_history_only':
             // OPTIMIZED: Load ONLY chat history (fast initialization)
             $limit = optional_param('limit', null, PARAM_INT);
-            $chatHistory = writeassistdev_load_chat_history_only($writeassistdev->id, $USER->id, $limit);
+            $sessionId = optional_param('session_id', null, PARAM_ALPHANUMEXT);
+            $chatHistory = researchflow_load_chat_history_only($researchflow->id, $USER->id, $limit, $sessionId);
             echo json_encode(['success' => true, 'chatHistory' => $chatHistory]);
             break;
 
         case 'delete_idea':
-            $mgr = new \mod_writeassistdev\data\ProjectDataManager();
+            $mgr = new \mod_researchflow\data\ProjectDataManager();
             $ideaid = optional_param('idea_id', 0, PARAM_INT);
             if ($ideaid) {
-                $ok = $mgr->deleteIdea($writeassistdev->id, $USER->id, $ideaid);
+                $ok = $mgr->deleteIdea($researchflow->id, $USER->id, $ideaid);
                 echo json_encode(['success' => (bool)$ok]);
                 break;
             }
@@ -203,27 +204,27 @@ try {
             $content = required_param('content', PARAM_RAW);
             $location = required_param('location', PARAM_ALPHANUMEXT); // allow hyphens if needed
             $sectionid = optional_param('sectionId', null, PARAM_ALPHANUMEXT);
-            $ok = $mgr->deleteIdeaByFields($writeassistdev->id, $USER->id, trim($content), $location, $sectionid);
+            $ok = $mgr->deleteIdeaByFields($researchflow->id, $USER->id, trim($content), $location, $sectionid);
             echo json_encode(['success' => (bool)$ok]);
             break;
             
         case 'delete_project':
-            $success = writeassistdev_delete_project($writeassistdev->id, $USER->id);
+            $success = researchflow_delete_project($researchflow->id, $USER->id);
             echo json_encode(['success' => $success]);
             break;
             
         case 'migrate_project':
-            $result = writeassistdev_migrate_project($writeassistdev->id, $USER->id);
+            $result = researchflow_migrate_project($researchflow->id, $USER->id);
             echo json_encode($result);
             break;
             
         case 'rollback_migration':
-            $result = writeassistdev_rollback_migration($writeassistdev->id, $USER->id);
+            $result = researchflow_rollback_migration($researchflow->id, $USER->id);
             echo json_encode($result);
             break;
             
         case 'migration_status':
-            $status = writeassistdev_get_migration_status();
+            $status = researchflow_get_migration_status();
             echo json_encode(['success' => true, 'status' => $status]);
             break;
             
@@ -234,37 +235,37 @@ try {
         // === CHAT SESSION MANAGEMENT ===
         case 'create_chat_session':
             $title = optional_param('title', 'New Chat', PARAM_TEXT);
-            $result = \mod_writeassistdev\data\ChatSessionManager::createSession($writeassistdev->id, $USER->id, $title);
+            $result = \mod_researchflow\data\ChatSessionManager::createSession($researchflow->id, $USER->id, $title);
             echo json_encode(['success' => true, 'session_id' => $result]);
             break;
             
         case 'get_chat_sessions':
-            $sessions = \mod_writeassistdev\data\ChatSessionManager::getSessions($writeassistdev->id, $USER->id);
+            $sessions = \mod_researchflow\data\ChatSessionManager::getSessions($researchflow->id, $USER->id);
             echo json_encode(['success' => true, 'sessions' => $sessions]);
             break;
             
         case 'switch_chat_session':
             $sessionId = required_param('session_id', PARAM_TEXT);
-            $result = \mod_writeassistdev\data\ChatSessionManager::switchToSession($writeassistdev->id, $USER->id, $sessionId);
+            $result = \mod_researchflow\data\ChatSessionManager::switchToSession($researchflow->id, $USER->id, $sessionId);
             echo json_encode(['success' => $result]);
             break;
             
         case 'delete_chat_session':
             $sessionId = required_param('session_id', PARAM_TEXT);
-            $result = \mod_writeassistdev\data\ChatSessionManager::deleteSession($writeassistdev->id, $USER->id, $sessionId);
+            $result = \mod_researchflow\data\ChatSessionManager::deleteSession($researchflow->id, $USER->id, $sessionId);
             echo json_encode(['success' => $result]);
             break;
             
         case 'update_chat_title':
             $sessionId = required_param('session_id', PARAM_TEXT);
             $newTitle = required_param('title', PARAM_TEXT);
-            $result = \mod_writeassistdev\data\ChatSessionManager::updateSessionTitle($writeassistdev->id, $USER->id, $sessionId, $newTitle);
+            $result = \mod_researchflow\data\ChatSessionManager::updateSessionTitle($researchflow->id, $USER->id, $sessionId, $newTitle);
             echo json_encode(['success' => $result]);
             break;
             
         case 'get_session_messages':
             $sessionId = required_param('session_id', PARAM_TEXT);
-            $messages = \mod_writeassistdev\data\ChatSessionManager::getSessionMessages($writeassistdev->id, $USER->id, $sessionId);
+            $messages = \mod_researchflow\data\ChatSessionManager::getSessionMessages($researchflow->id, $USER->id, $sessionId);
             echo json_encode(['success' => true, 'messages' => $messages]);
             break;
             
@@ -287,7 +288,7 @@ try {
             } else {
                 $timestamp = date('Y-m-d H:i:s');
             }
-            $result = \mod_writeassistdev\data\ChatSessionManager::saveMessage($writeassistdev->id, $USER->id, $sessionId, $role, $content, $timestamp);
+            $result = \mod_researchflow\data\ChatSessionManager::saveMessage($researchflow->id, $USER->id, $sessionId, $role, $content, $timestamp);
             echo json_encode(['success' => $result !== false, 'message_id' => $result]);
             break;
             
@@ -297,20 +298,9 @@ try {
                 $role = required_param('role', PARAM_RAW_TRIMMED); // More permissive for role
                 // Allow full chat content including punctuation/newlines/JSON-like structures
                 $content = required_param('content', PARAM_RAW);
-                // Accept timestamp as ISO string or integer (for backward compatibility)
-                $timestampParam = optional_param('timestamp', null, PARAM_RAW);
-                $timestamp = null;
-                if ($timestampParam !== null) {
-                    if (is_numeric($timestampParam)) {
-                        // Unix timestamp (integer) - convert to ISO string
-                        $timestamp = date('Y-m-d H:i:s', (int)$timestampParam);
-                    } else {
-                        // ISO string - use as-is (TIMESTAMP/TIMESTAMPTZ format)
-                        $timestamp = $timestampParam;
-                    }
-                } else {
-                    $timestamp = date('Y-m-d H:i:s');
-                }
+                // Accept timestamp as ISO string or integer - pass through to saveMessage which handles conversion
+                // saveMessage will convert to Unix timestamp (integer) as required by database
+                $timestamp = optional_param('timestamp', null, PARAM_RAW);
                 
                 // Validate role is one of expected values
                 if (!in_array($role, ['user', 'assistant', 'system'])) {
@@ -320,7 +310,7 @@ try {
                 error_log('append_message: sessionId=' . $sessionId . ', role=' . $role . ', content_length=' . strlen($content) . ', timestamp=' . $timestamp);
                 
                 // Use appendMessage which preserves history and prevents duplicates
-                $result = \mod_writeassistdev\data\ChatSessionManager::appendMessage($writeassistdev->id, $USER->id, $sessionId, $role, $content, $timestamp);
+                $result = \mod_researchflow\data\ChatSessionManager::appendMessage($researchflow->id, $USER->id, $sessionId, $role, $content, $timestamp);
                 echo json_encode(['success' => $result !== false, 'message_id' => $result]);
             } catch (Exception $e) {
                 error_log('append_message error: ' . $e->getMessage());
@@ -331,20 +321,20 @@ try {
             
         case 'clear_session_messages':
             $sessionId = required_param('session_id', PARAM_TEXT);
-            $result = \mod_writeassistdev\data\ChatSessionManager::clearSessionMessages($writeassistdev->id, $USER->id, $sessionId);
+            $result = \mod_researchflow\data\ChatSessionManager::clearSessionMessages($researchflow->id, $USER->id, $sessionId);
             echo json_encode(['success' => $result]);
             break;
             
         case 'get_version_history':
             $phase = required_param('phase', PARAM_ALPHANUMEXT);
-            $versions = \mod_writeassistdev\data\VersionManager::getVersionHistory($writeassistdev->id, $USER->id, $phase);
+            $versions = \mod_researchflow\data\VersionManager::getVersionHistory($researchflow->id, $USER->id, $phase);
             echo json_encode(['success' => true, 'versions' => $versions]);
             break;
             
         case 'get_version':
             $phase = required_param('phase', PARAM_ALPHANUMEXT);
             $versionNumber = required_param('version_number', PARAM_INT);
-            $version = \mod_writeassistdev\data\VersionManager::getVersion($writeassistdev->id, $USER->id, $phase, $versionNumber);
+            $version = \mod_researchflow\data\VersionManager::getVersion($researchflow->id, $USER->id, $phase, $versionNumber);
             if ($version) {
                 echo json_encode(['success' => true, 'version' => $version]);
             } else {
@@ -355,13 +345,13 @@ try {
         case 'restore_version':
             $phase = required_param('phase', PARAM_ALPHANUMEXT);
             $versionNumber = required_param('version_number', PARAM_INT);
-            $version = \mod_writeassistdev\data\VersionManager::getVersion($writeassistdev->id, $USER->id, $phase, $versionNumber);
+            $version = \mod_researchflow\data\VersionManager::getVersion($researchflow->id, $USER->id, $phase, $versionNumber);
             if ($version) {
                 // Update current content directly
                 global $DB;
                 $now = time();
                 $record = [
-                    'writeassistdevid' => $writeassistdev->id,
+                    'researchflowid' => $researchflow->id,
                     'userid' => $USER->id,
                     'phase' => $phase,
                     'content' => $version->content,
@@ -369,8 +359,8 @@ try {
                     'modified_at' => $now
                 ];
                 
-                $existing = $DB->get_record('writeassistdev_content', [
-                    'writeassistdevid' => $writeassistdev->id,
+                $existing = $DB->get_record('researchflow_content', [
+                    'researchflowid' => $researchflow->id,
                     'userid' => $USER->id,
                     'phase' => $phase
                 ]);
@@ -378,15 +368,15 @@ try {
                 if ($existing) {
                     $record['id'] = $existing->id;
                     $record['created_at'] = $existing->created_at;
-                    $DB->update_record('writeassistdev_content', $record);
+                    $DB->update_record('researchflow_content', $record);
                 } else {
                     $record['created_at'] = $now;
-                    $DB->insert_record('writeassistdev_content', $record);
+                    $DB->insert_record('researchflow_content', $record);
                 }
                 
                 // Create a new version snapshot for the restore
-                \mod_writeassistdev\data\VersionManager::saveVersion(
-                    $writeassistdev->id,
+                \mod_researchflow\data\VersionManager::saveVersion(
+                    $researchflow->id,
                     $USER->id,
                     $phase,
                     $version->content,
@@ -403,7 +393,7 @@ try {
         case 'save_instructor_goal':
             try {
                 // Check if user has permission to edit goals
-                if (!has_capability('mod/writeassistdev:addinstance', $context) && 
+                if (!has_capability('mod/researchflow:addinstance', $context) && 
                     !has_capability('moodle/course:manageactivities', $context)) {
                     echo json_encode(['success' => false, 'error' => 'Permission denied']);
                     exit;
@@ -422,7 +412,7 @@ try {
                 global $CFG;
                 require_once($CFG->libdir . '/ddllib.php');
                 $dbman = $DB->get_manager();
-                $table = new xmldb_table('writeassistdev');
+                $table = new xmldb_table('researchflow');
                 $fieldName = $tab . '_goal';
                 $field = new xmldb_field($fieldName, XMLDB_TYPE_TEXT, null, null, null, null, null);
                 
@@ -439,17 +429,17 @@ try {
                     }
                 }
                 
-                // Update the goal field in writeassistdev table
+                // Update the goal field in researchflow table
                 // Use array syntax for dynamic field name
                 $updateData = [
-                    'id' => $writeassistdev->id,
+                    'id' => $researchflow->id,
                     $fieldName => $goal
                 ];
                 
                 // Convert to object for update_record
                 $updateObj = (object)$updateData;
                 
-                $result = $DB->update_record('writeassistdev', $updateObj);
+                $result = $DB->update_record('researchflow', $updateObj);
                 
                 if (!$result) {
                     error_log('ajax.php: update_record returned false for goal save');
@@ -466,11 +456,87 @@ try {
             break;
             
         case 'submit_project':
-            $mgr = new \mod_writeassistdev\data\ProjectDataManager();
-            $result = $mgr->submitProject($writeassistdev->id, $USER->id);
+            $mgr = new \mod_researchflow\data\ProjectDataManager();
+            $result = $mgr->submitProject($researchflow->id, $USER->id);
             echo json_encode(['success' => $result]);
             break;
             
+        case 'proxy_chat':
+            try {
+                $apiEndpoint = get_config('mod_researchflow', 'api_endpoint');
+                $apiKey = get_config('mod_researchflow', 'api_key');
+                if (empty(trim($apiEndpoint ?? ''))) {
+                    echo json_encode([
+                        'success' => false,
+                        'assistantReply' => 'The AI Writing Assistant API endpoint has not been configured. Please contact your site administrator.',
+                        'project' => null
+                    ]);
+                    break;
+                }
+                $userInput = required_param('user_input', PARAM_RAW);
+                $projectData = optional_param('project_data', '{}', PARAM_RAW);
+                $decoded = json_decode($projectData, true);
+                $currentProject = is_array($decoded) ? $decoded : [];
+                $requestBody = [
+                    'userInput' => $userInput,
+                    'currentProject' => $currentProject
+                ];
+                $url = rtrim($apiEndpoint, '/') . '/api/chat';
+                $ch = curl_init($url);
+                $headers = ['Content-Type: application/json'];
+                if (!empty(trim($apiKey ?? ''))) {
+                    $headers[] = 'X-API-Key: ' . $apiKey;
+                }
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($requestBody),
+                    CURLOPT_HTTPHEADER => $headers,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 120
+                ]);
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                if ($response === false) {
+                    echo json_encode([
+                        'success' => false,
+                        'assistantReply' => 'Failed to connect to AI service. Please try again later.',
+                        'project' => null
+                    ]);
+                    break;
+                }
+                $result = json_decode($response, true);
+                if ($result === null) {
+                    echo json_encode([
+                        'success' => false,
+                        'assistantReply' => 'Invalid response from AI service.',
+                        'project' => null
+                    ]);
+                    break;
+                }
+                if ($httpCode >= 400) {
+                    echo json_encode([
+                        'success' => false,
+                        'assistantReply' => $result['assistantReply'] ?? $result['error'] ?? 'AI service error.',
+                        'project' => $result['project'] ?? null
+                    ]);
+                    break;
+                }
+                echo json_encode([
+                    'success' => true,
+                    'assistantReply' => $result['assistantReply'] ?? null,
+                    'project' => $result['project'] ?? null
+                ]);
+            } catch (Exception $e) {
+                error_log('proxy_chat error: ' . $e->getMessage());
+                echo json_encode([
+                    'success' => false,
+                    'assistantReply' => 'Error: ' . $e->getMessage(),
+                    'project' => null
+                ]);
+            }
+            break;
+
         case 'log_activity':
             $activities = optional_param('activities', null, PARAM_RAW);
             if ($activities === null) {
@@ -489,7 +555,7 @@ try {
             foreach ($activities as $activity) {
                 try {
                     $record = new stdClass();
-                    $record->writeassistdevid = $writeassistdev->id;
+                    $record->researchflowid = $researchflow->id;
                     $record->userid = $USER->id;
                     $record->phase = $activity['phase'] ?? 'write';
                     $record->action_type = $activity['action_type'] ?? 'unknown';
@@ -503,7 +569,7 @@ try {
                     $record->timestamp = isset($activity['timestamp']) ? (int)$activity['timestamp'] : time();
                     $record->created_at = isset($activity['created_at']) ? (int)$activity['created_at'] : time();
                     
-                    $DB->insert_record('writeassistdev_activity_log', $record);
+                    $DB->insert_record('researchflow_activity_log', $record);
                     $saved++;
                 } catch (Exception $e) {
                     error_log('Failed to save activity log: ' . $e->getMessage());

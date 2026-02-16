@@ -2,29 +2,34 @@
    1. CSS VARIABLES & RESETS
    ===================== */
 
-/* Full-page layout overrides for Moodle */
-body.pagelayout-popup {
+/* Full-page layout overrides for Moodle - Support both popup and embedded layouts */
+body.pagelayout-popup,
+body.pagelayout-embedded {
     margin: 0 !important;
     padding: 0 !important;
     background: var(--primary-bg) !important;
     overflow: hidden !important;
 }
 
-body.pagelayout-popup #page {
+body.pagelayout-popup #page,
+body.pagelayout-embedded #page {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--primary-bg) !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
+body.pagelayout-popup #page-content,
+body.pagelayout-embedded #page-content {
     margin: 0 !important;
     padding: 0 !important;
     background: var(--primary-bg) !important;
     overflow: hidden !important;
 }
 
-body.pagelayout-popup #page-content {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: var(--primary-bg) !important;
-    overflow: hidden !important;
-}
-
-body.pagelayout-popup .main-content {
+body.pagelayout-popup .main-content,
+body.pagelayout-embedded .main-content {
     margin: 0 !important;
     padding: 0 !important;
     background: var(--primary-bg) !important;
@@ -38,28 +43,95 @@ body.pagelayout-popup .row,
 body.pagelayout-popup .col,
 body.pagelayout-popup .col-12,
 body.pagelayout-popup .col-md-12,
-body.pagelayout-popup .col-lg-12 {
+body.pagelayout-popup .col-lg-12,
+body.pagelayout-embedded .container-fluid,
+body.pagelayout-embedded .container,
+body.pagelayout-embedded .row,
+body.pagelayout-embedded .col,
+body.pagelayout-embedded .col-12,
+body.pagelayout-embedded .col-md-12,
+body.pagelayout-embedded .col-lg-12 {
     margin: 0 !important;
     padding: 0 !important;
 }
 
-/* Hide Moodle navigation elements in popup layout */
+/* Hide Moodle navigation elements in popup and embedded layouts */
 body.pagelayout-popup #nav-drawer,
 body.pagelayout-popup #page-header,
 body.pagelayout-popup #page-footer,
 body.pagelayout-popup .breadcrumb,
 body.pagelayout-popup .page-header-actions,
-body.pagelayout-popup .secondary-navigation {
+body.pagelayout-popup .secondary-navigation,
+body.pagelayout-embedded #nav-drawer,
+body.pagelayout-embedded #page-header,
+body.pagelayout-embedded #page-footer,
+body.pagelayout-embedded .breadcrumb,
+body.pagelayout-embedded .page-header-actions,
+body.pagelayout-embedded .secondary-navigation,
+body.pagelayout-embedded header,
+body.pagelayout-embedded .navbar,
+body.pagelayout-embedded .navbar-nav,
+body.pagelayout-embedded .region-main-content > .card,
+body.pagelayout-embedded .region-main-content > .card-body {
     display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-/* Ensure the app container takes full height */
-body.pagelayout-popup .app-container {
+/* Remove top spacing from Moodle's page structure */
+body.pagelayout-embedded #region-main,
+body.pagelayout-embedded .region-main-content,
+body.pagelayout-embedded .region-main,
+body.pagelayout-embedded [role="main"],
+body.pagelayout-embedded .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Ensure the app container takes full height and starts at top */
+body.pagelayout-popup .app-container,
+body.pagelayout-embedded .app-container {
     height: 100vh !important;
     width: 100vw !important;
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+}
+
+/* Additional aggressive removal of Moodle header/nav spacing */
+body.pagelayout-embedded .navbar,
+body.pagelayout-embedded .navbar-expand,
+body.pagelayout-embedded .navbar-brand,
+body.pagelayout-embedded .navbar-nav,
+body.pagelayout-embedded .navbar-collapse,
+body.pagelayout-embedded .page-header,
+body.pagelayout-embedded .page-header-headings,
+body.pagelayout-embedded .activity-header,
+body.pagelayout-embedded .activity-navigation,
+body.pagelayout-embedded .activity-information,
+body.pagelayout-embedded .intro,
+body.pagelayout-embedded .intro-content {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Remove any top margin/padding from body and html */
+body.pagelayout-embedded,
+html.pagelayout-embedded {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
 }
 
 :root {
@@ -2675,6 +2747,30 @@ body.activity-edit .chat-tab.active {
     margin-bottom: 12px;
 }
 
+/* ChatGPT/Cursor-style bouncing dots */
+.chat-loading-dots {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.chat-loading-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    animation: bounce 1.4s ease-in-out infinite both;
+}
+
+.chat-loading-dots span:nth-child(1) { animation-delay: 0s; }
+.chat-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.chat-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
 @keyframes spin {
     0% {
         transform: rotate(0deg);
@@ -2688,6 +2784,81 @@ body.activity-edit .chat-tab.active {
 .chat-loading span {
     color: var(--text-secondary);
     font-size: 0.85rem;
+}
+
+/* Chat empty & error states */
+.chat-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.chat-empty-icon,
+.chat-error-icon {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+    opacity: 0.7;
+}
+
+.chat-empty-title,
+.chat-error-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 8px;
+}
+
+.chat-empty-subtitle,
+.chat-error-message {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0 0 20px;
+    max-width: 320px;
+}
+
+.chat-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.chat-suggestion {
+    display: inline-block;
+    padding: 8px 14px;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.chat-suggestion:hover {
+    background: var(--border-color);
+    border-color: var(--accent-primary);
+    color: var(--text-color);
+}
+
+.chat-retry-btn {
+    padding: 10px 20px;
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.chat-retry-btn:hover {
+    background: var(--accent-hover, var(--accent-primary));
+    filter: brightness(1.1);
 }
 
 .clear-chat-btn {

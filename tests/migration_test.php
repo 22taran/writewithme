@@ -7,21 +7,21 @@
 
 /**
  * Unit tests for migration functionality
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-use mod_writeassistdev\migration\ProjectDataParser;
-use mod_writeassistdev\migration\DataMigrator;
-use mod_writeassistdev\data\ProjectDataManager;
+use mod_researchflow\migration\ProjectDataParser;
+use mod_researchflow\migration\DataMigrator;
+use mod_researchflow\data\ProjectDataManager;
 
 /**
  * Test cases for migration functionality
  */
-class mod_writeassistdev_migration_testcase extends advanced_testcase {
+class mod_researchflow_migration_testcase extends advanced_testcase {
     
     /**
      * Test JSON data parsing
@@ -81,7 +81,7 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         // Create test data
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
-        $activity = $this->getDataGenerator()->create_module('writeassistdev', [
+        $activity = $this->getDataGenerator()->create_module('researchflow', [
             'course' => $course->id,
             'name' => 'Test Activity'
         ]);
@@ -116,8 +116,8 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         ]);
         
         // Insert test data
-        $DB->insert_record('writeassistdev_work', [
-            'writeassistdevid' => $activity->id,
+        $DB->insert_record('researchflow_work', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'content' => $jsonData,
             'timecreated' => time(),
@@ -134,11 +134,11 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         $this->assertEquals(1, $result['content_records_migrated']);
         
         // Verify data was migrated
-        $this->assertTrue(writeassistdev_is_migrated($activity->id, $user->id));
+        $this->assertTrue(researchflow_is_migrated($activity->id, $user->id));
         
         // Verify ideas were migrated
-        $ideas = $DB->get_records('writeassistdev_ideas', [
-            'writeassistdevid' => $activity->id,
+        $ideas = $DB->get_records('researchflow_ideas', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id
         ]);
         $this->assertCount(1, $ideas);
@@ -149,8 +149,8 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         $this->assertEquals(0, $idea->ai_generated);
         
         // Verify content was migrated
-        $content = $DB->get_record('writeassistdev_content', [
-            'writeassistdevid' => $activity->id,
+        $content = $DB->get_record('researchflow_content', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'phase' => 'write'
         ]);
@@ -159,8 +159,8 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         $this->assertEquals(5, $content->word_count);
         
         // Verify chat was migrated
-        $chat = $DB->get_records('writeassistdev_chat', [
-            'writeassistdevid' => $activity->id,
+        $chat = $DB->get_records('researchflow_chat', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id
         ]);
         $this->assertCount(1, $chat);
@@ -181,29 +181,29 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         // Create test data
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
-        $activity = $this->getDataGenerator()->create_module('writeassistdev', [
+        $activity = $this->getDataGenerator()->create_module('researchflow', [
             'course' => $course->id,
             'name' => 'Test Activity'
         ]);
         
         // Insert normalized data
-        $DB->insert_record('writeassistdev_metadata', [
-            'writeassistdevid' => $activity->id,
+        $DB->insert_record('researchflow_metadata', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'title' => 'Test Project',
             'current_tab' => 'write'
         ]);
         
-        $DB->insert_record('writeassistdev_ideas', [
-            'writeassistdevid' => $activity->id,
+        $DB->insert_record('researchflow_ideas', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'content' => 'Test idea',
             'location' => 'brainstorm',
             'ai_generated' => 0
         ]);
         
-        $DB->insert_record('writeassistdev_content', [
-            'writeassistdevid' => $activity->id,
+        $DB->insert_record('researchflow_content', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'phase' => 'write',
             'content' => '<p>Test content</p>',
@@ -233,7 +233,7 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         // Create test data
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
-        $activity = $this->getDataGenerator()->create_module('writeassistdev', [
+        $activity = $this->getDataGenerator()->create_module('researchflow', [
             'course' => $course->id,
             'name' => 'Test Activity'
         ]);
@@ -273,21 +273,21 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         $this->assertTrue($result);
         
         // Verify data was saved
-        $metadata = $DB->get_record('writeassistdev_metadata', [
-            'writeassistdevid' => $activity->id,
+        $metadata = $DB->get_record('researchflow_metadata', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id
         ]);
         $this->assertNotFalse($metadata);
         $this->assertEquals('Test Project', $metadata->title);
         
-        $ideas = $DB->get_records('writeassistdev_ideas', [
-            'writeassistdevid' => $activity->id,
+        $ideas = $DB->get_records('researchflow_ideas', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id
         ]);
         $this->assertCount(1, $ideas);
         
-        $content = $DB->get_record('writeassistdev_content', [
-            'writeassistdevid' => $activity->id,
+        $content = $DB->get_record('researchflow_content', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'phase' => 'write'
         ]);
@@ -306,14 +306,14 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         // Create test data
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
-        $activity = $this->getDataGenerator()->create_module('writeassistdev', [
+        $activity = $this->getDataGenerator()->create_module('researchflow', [
             'course' => $course->id,
             'name' => 'Test Activity'
         ]);
         
         // Create old format data
-        $DB->insert_record('writeassistdev_work', [
-            'writeassistdevid' => $activity->id,
+        $DB->insert_record('researchflow_work', [
+            'researchflowid' => $activity->id,
             'userid' => $user->id,
             'content' => '{"test": "data"}',
             'timecreated' => time(),
@@ -321,7 +321,7 @@ class mod_writeassistdev_migration_testcase extends advanced_testcase {
         ]);
         
         // Test migration status
-        $status = writeassistdev_get_migration_status();
+        $status = researchflow_get_migration_status();
         
         $this->assertEquals(1, $status['old_records']);
         $this->assertEquals(0, $status['new_metadata']);

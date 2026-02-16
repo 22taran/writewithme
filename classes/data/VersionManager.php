@@ -4,12 +4,12 @@
  * 
  * Handles content version history for Write/Edit modules
  * 
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_writeassistdev\data;
+namespace mod_researchflow\data;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -26,7 +26,7 @@ class VersionManager {
     /**
      * Save a version snapshot
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $phase Phase name (write/edit)
      * @param string $content Content text
@@ -34,15 +34,15 @@ class VersionManager {
      * @param string $changeSummary Summary of change (e.g., "Auto-saved", "Manual save")
      * @return int|false Version number or false on failure
      */
-    public static function saveVersion($writeassistdevid, $userid, $phase, $content, $wordCount = 0, $changeSummary = 'Auto-saved') {
+    public static function saveVersion($researchflowid, $userid, $phase, $content, $wordCount = 0, $changeSummary = 'Auto-saved') {
         global $DB, $USER;
         
         try {
             // Get next version number
-            $lastVersion = $DB->get_field('writeassistdev_versions', 
+            $lastVersion = $DB->get_field('researchflow_versions', 
                 'MAX(version_number)', 
                 [
-                    'writeassistdevid' => $writeassistdevid,
+                    'researchflowid' => $researchflowid,
                     'userid' => $userid,
                     'phase' => $phase
                 ]
@@ -50,7 +50,7 @@ class VersionManager {
             $versionNumber = ($lastVersion ? $lastVersion : 0) + 1;
             
             $record = [
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'phase' => $phase,
                 'content' => $content,
@@ -61,10 +61,10 @@ class VersionManager {
                 'change_summary' => $changeSummary
             ];
             
-            $versionId = $DB->insert_record('writeassistdev_versions', $record);
+            $versionId = $DB->insert_record('researchflow_versions', $record);
             
             // Clean up old versions (keep only last MAX_VERSIONS)
-            self::cleanupOldVersions($writeassistdevid, $userid, $phase);
+            self::cleanupOldVersions($researchflowid, $userid, $phase);
             
             return $versionNumber;
         } catch (\Exception $e) {
@@ -76,19 +76,19 @@ class VersionManager {
     /**
      * Get version history for a document
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $phase Phase name
      * @param int $limit Number of versions to return
      * @return array Array of versions
      */
-    public static function getVersionHistory($writeassistdevid, $userid, $phase, $limit = 50) {
+    public static function getVersionHistory($researchflowid, $userid, $phase, $limit = 50) {
         global $DB;
         
         try {
-            $versions = $DB->get_records('writeassistdev_versions', 
+            $versions = $DB->get_records('researchflow_versions', 
                 [
-                    'writeassistdevid' => $writeassistdevid,
+                    'researchflowid' => $researchflowid,
                     'userid' => $userid,
                     'phase' => $phase
                 ],
@@ -108,18 +108,18 @@ class VersionManager {
     /**
      * Get a specific version by version number
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $phase Phase name
      * @param int $versionNumber Version number
      * @return object|null Version record or null
      */
-    public static function getVersion($writeassistdevid, $userid, $phase, $versionNumber) {
+    public static function getVersion($researchflowid, $userid, $phase, $versionNumber) {
         global $DB;
         
         try {
-            return $DB->get_record('writeassistdev_versions', [
-                'writeassistdevid' => $writeassistdevid,
+            return $DB->get_record('researchflow_versions', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'phase' => $phase,
                 'version_number' => $versionNumber
@@ -133,17 +133,17 @@ class VersionManager {
     /**
      * Clean up old versions, keeping only the most recent ones
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $phase Phase name
      */
-    private static function cleanupOldVersions($writeassistdevid, $userid, $phase) {
+    private static function cleanupOldVersions($researchflowid, $userid, $phase) {
         global $DB;
         
         try {
             // Count total versions
-            $count = $DB->count_records('writeassistdev_versions', [
-                'writeassistdevid' => $writeassistdevid,
+            $count = $DB->count_records('researchflow_versions', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'phase' => $phase
             ]);
@@ -153,9 +153,9 @@ class VersionManager {
                 $excess = $count - self::MAX_VERSIONS_PER_DOCUMENT;
                 
                 // Get IDs of oldest versions to delete
-                $oldVersions = $DB->get_records('writeassistdev_versions',
+                $oldVersions = $DB->get_records('researchflow_versions',
                     [
-                        'writeassistdevid' => $writeassistdevid,
+                        'researchflowid' => $researchflowid,
                         'userid' => $userid,
                         'phase' => $phase
                     ],
@@ -166,7 +166,7 @@ class VersionManager {
                 );
                 
                 foreach ($oldVersions as $version) {
-                    $DB->delete_records('writeassistdev_versions', ['id' => $version->id]);
+                    $DB->delete_records('researchflow_versions', ['id' => $version->id]);
                 }
             }
         } catch (\Exception $e) {
@@ -177,19 +177,19 @@ class VersionManager {
     /**
      * Check if we should create a version (based on word count difference)
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $phase Phase name
      * @param int $newWordCount New word count
      * @return bool True if should create version
      */
-    public static function shouldCreateVersion($writeassistdevid, $userid, $phase, $newWordCount) {
+    public static function shouldCreateVersion($researchflowid, $userid, $phase, $newWordCount) {
         global $DB;
         
         try {
             // Get current content word count
-            $current = $DB->get_record('writeassistdev_content', [
-                'writeassistdevid' => $writeassistdevid,
+            $current = $DB->get_record('researchflow_content', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                 'phase' => $phase
             ]);

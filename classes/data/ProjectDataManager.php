@@ -7,12 +7,12 @@
 
 /**
  * Project data manager for normalized schema
- * @package    mod_writeassistdev
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace mod_writeassistdev\data;
+namespace mod_researchflow\data;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -23,17 +23,17 @@ class ProjectDataManager {
     
     /**
      * Load project data from normalized tables
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @return array|false Project data or false if not found
      */
-    public function loadProject($writeassistdevid, $userid) {
+    public function loadProject($researchflowid, $userid) {
         global $DB;
         
         try {
             // Load metadata
-            $metadata = $DB->get_record('writeassistdev_metadata', [
-                'writeassistdevid' => $writeassistdevid,
+            $metadata = $DB->get_record('researchflow_metadata', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
@@ -55,20 +55,20 @@ class ProjectDataManager {
             }
             
             // Load ideas
-            $ideas = $DB->get_records('writeassistdev_ideas', [
-                'writeassistdevid' => $writeassistdevid,
+            $ideas = $DB->get_records('researchflow_ideas', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ], 'id ASC');
             
             // Load content
-            $content = $DB->get_records('writeassistdev_content', [
-                'writeassistdevid' => $writeassistdevid,
+            $content = $DB->get_records('researchflow_content', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
             // Load chat
-            $chat = $DB->get_records('writeassistdev_chat', [
-                'writeassistdevid' => $writeassistdevid,
+            $chat = $DB->get_records('researchflow_chat', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ], 'timestamp ASC');
             
@@ -82,20 +82,20 @@ class ProjectDataManager {
     
     /**
      * Save project data to normalized tables
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param array $projectData Project data to save
      * @return bool Success status
      */
-    public function saveProject($writeassistdevid, $userid, $projectData) {
+    public function saveProject($researchflowid, $userid, $projectData) {
         global $DB;
         
         try {
             error_log('ProjectDataManager::saveProject called with data: ' . json_encode($projectData));
             
             // Check if project is already submitted
-            $metadata = $DB->get_record('writeassistdev_metadata', [
-                'writeassistdevid' => $writeassistdevid,
+            $metadata = $DB->get_record('researchflow_metadata', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
@@ -106,19 +106,19 @@ class ProjectDataManager {
             
             // Check if normalized tables exist (with proper prefix)
             $dbman = $DB->get_manager();
-            $tableExists = $dbman->table_exists('writeassistdev_metadata');
-            error_log('Checking table writeassistdev_metadata: ' . ($tableExists ? 'EXISTS' : 'NOT EXISTS'));
+            $tableExists = $dbman->table_exists('researchflow_metadata');
+            error_log('Checking table researchflow_metadata: ' . ($tableExists ? 'EXISTS' : 'NOT EXISTS'));
             
             // Debug: List all tables to see what exists
             $allTables = $DB->get_tables();
             $writeassistTables = array_filter($allTables, function($table) {
-                return strpos($table, 'writeassistdev') !== false;
+                return strpos($table, 'researchflow') !== false;
             });
-            error_log('All writeassistdev tables: ' . implode(', ', $writeassistTables));
+            error_log('All researchflow tables: ' . implode(', ', $writeassistTables));
             
             // Also check if we can actually query the metadata table
             try {
-                $testQuery = $DB->get_record('writeassistdev_metadata', ['writeassistdevid' => $writeassistdevid, 'userid' => $userid]);
+                $testQuery = $DB->get_record('researchflow_metadata', ['researchflowid' => $researchflowid, 'userid' => $userid]);
                 error_log('Test query on metadata table: SUCCESS');
             } catch (Exception $e) {
                 error_log('Test query on metadata table FAILED: ' . $e->getMessage());
@@ -131,19 +131,19 @@ class ProjectDataManager {
             
             $transaction = $DB->start_delegated_transaction();
             
-            error_log('Starting save process for user ' . $userid . ' activity ' . $writeassistdevid);
+            error_log('Starting save process for user ' . $userid . ' activity ' . $researchflowid);
             
             // Verify foreign key references exist
-            $activityExists = $DB->record_exists('writeassistdev', ['id' => $writeassistdevid]);
+            $activityExists = $DB->record_exists('researchflow', ['id' => $researchflowid]);
             $userExists = $DB->record_exists('user', ['id' => $userid]);
-            error_log('Activity exists: ' . ($activityExists ? 'YES' : 'NO') . ' (ID: ' . $writeassistdevid . ')');
+            error_log('Activity exists: ' . ($activityExists ? 'YES' : 'NO') . ' (ID: ' . $researchflowid . ')');
             error_log('User exists: ' . ($userExists ? 'YES' : 'NO') . ' (ID: ' . $userid . ')');
             
             if (!$activityExists) {
                 // Let's see what activities do exist
-                $allActivities = $DB->get_records('writeassistdev', null, '', 'id,name');
+                $allActivities = $DB->get_records('researchflow', null, '', 'id,name');
                 error_log('Available activities: ' . json_encode($allActivities));
-                throw new \Exception('Activity ' . $writeassistdevid . ' does not exist');
+                throw new \Exception('Activity ' . $researchflowid . ' does not exist');
             }
             if (!$userExists) {
                 throw new \Exception('User ' . $userid . ' does not exist');
@@ -170,23 +170,23 @@ class ProjectDataManager {
             } else {
                 error_log('ProjectDataManager::saveProject - plan data NOT in projectData');
             }
-            $this->saveMetadata($writeassistdevid, $userid, $metadata);
+            $this->saveMetadata($researchflowid, $userid, $metadata);
             
             // Save ideas
             error_log('Saving ideas...');
-            $ideaMappings = $this->saveIdeas($writeassistdevid, $userid, $projectData['plan']['ideas'] ?? []);
+            $ideaMappings = $this->saveIdeas($researchflowid, $userid, $projectData['plan']['ideas'] ?? []);
             
             // Save content
             error_log('Saving content...');
             error_log('Write data: ' . json_encode($projectData['write'] ?? []));
             error_log('Edit data: ' . json_encode($projectData['edit'] ?? []));
-            $this->saveContent($writeassistdevid, $userid, $projectData['write'] ?? [], 'write');
-            $this->saveContent($writeassistdevid, $userid, $projectData['edit'] ?? [], 'edit');
+            $this->saveContent($researchflowid, $userid, $projectData['write'] ?? [], 'write');
+            $this->saveContent($researchflowid, $userid, $projectData['edit'] ?? [], 'edit');
             
             // Save chat
             error_log('Saving chat...');
             error_log('Chat history data: ' . json_encode($projectData['chatHistory'] ?? []));
-            $this->saveChat($writeassistdevid, $userid, $projectData['chatHistory'] ?? []);
+            $this->saveChat($researchflowid, $userid, $projectData['chatHistory'] ?? []);
             
             error_log('Committing transaction...');
             $transaction->allow_commit();
@@ -237,11 +237,21 @@ class ProjectDataManager {
             'write' => $this->getContentByPhase($content, 'write'),
             'edit' => $this->getContentByPhase($content, 'edit'),
             'chatHistory' => array_values(array_map(function($message) {
-                error_log('ProjectDataManager: Processing chat message: ' . json_encode($message));
+                $ts = $message->timestamp;
+                if (is_numeric($ts) && $ts > 0) {
+                    $ts = (int) $ts;
+                } elseif ($ts instanceof \DateTimeInterface) {
+                    $ts = $ts->getTimestamp();
+                } elseif (is_string($ts) && $ts !== '') {
+                    $parsed = strtotime($ts);
+                    $ts = ($parsed !== false) ? $parsed : (int) ($message->created_at ?? time());
+                } else {
+                    $ts = isset($message->created_at) ? (int) $message->created_at : time();
+                }
                 return [
                     'role' => $message->role,
                     'content' => $message->content,
-                    'timestamp' => $message->timestamp
+                    'timestamp' => $ts
                 ];
             }, $chat))
         ];
@@ -312,11 +322,11 @@ class ProjectDataManager {
     
     /**
      * Save metadata to normalized table
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param array $metadata Metadata array
      */
-    private function saveMetadata($writeassistdevid, $userid, $metadata) {
+    private function saveMetadata($researchflowid, $userid, $metadata) {
         global $DB;
         
         try {
@@ -333,7 +343,7 @@ class ProjectDataManager {
             }
         
         $record = [
-            'writeassistdevid' => $writeassistdevid,
+            'researchflowid' => $researchflowid,
             'userid' => $userid,
             'title' => $metadata['title'] ?? '',
             'description' => $metadata['description'] ?? '',
@@ -346,7 +356,7 @@ class ProjectDataManager {
         
         // Add plan_outline field - check if it exists first
         $dbman = $DB->get_manager();
-        $table = new \xmldb_table('writeassistdev_metadata');
+        $table = new \xmldb_table('researchflow_metadata');
         $field = new \xmldb_field('plan_outline', XMLDB_TYPE_TEXT, null, null, null, null, null);
         
         if ($dbman->field_exists($table, $field)) {
@@ -368,8 +378,8 @@ class ProjectDataManager {
             }
         }
         
-        $existing = $DB->get_record('writeassistdev_metadata', [
-            'writeassistdevid' => $writeassistdevid,
+        $existing = $DB->get_record('researchflow_metadata', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid
         ]);
         
@@ -389,7 +399,7 @@ class ProjectDataManager {
                 unset($recordToSave['plan_outline']);
             }
             
-            $result = $DB->update_record('writeassistdev_metadata', $recordToSave);
+            $result = $DB->update_record('researchflow_metadata', $recordToSave);
             error_log('Metadata update result: ' . ($result ? 'SUCCESS' : 'FAILED'));
             if (!$result) {
                 error_log('Metadata update failed - record: ' . json_encode($recordToSave));
@@ -400,7 +410,7 @@ class ProjectDataManager {
                 unset($recordToSave['plan_outline']);
             }
             
-            $result = $DB->insert_record('writeassistdev_metadata', $recordToSave);
+            $result = $DB->insert_record('researchflow_metadata', $recordToSave);
             error_log('Metadata insert result: ' . ($result ? 'SUCCESS (ID: ' . $result . ')' : 'FAILED'));
             if (!$result) {
                 error_log('Metadata insert failed - record: ' . json_encode($recordToSave));
@@ -416,12 +426,12 @@ class ProjectDataManager {
     
     /**
      * Save ideas to normalized table
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param array $ideas Ideas array
      * @return array Mapping of client IDs to DB IDs
      */
-    private function saveIdeas($writeassistdevid, $userid, $ideas) {
+    private function saveIdeas($researchflowid, $userid, $ideas) {
         global $DB;
         
         $idMappings = [];
@@ -443,7 +453,7 @@ class ProjectDataManager {
                 $normalizedContent = $normalizeContent($content);
 
                 $record = [
-                    'writeassistdevid' => $writeassistdevid,
+                    'researchflowid' => $researchflowid,
                     'userid' => $userid,
                     'content' => $content,
                     'location' => $location,
@@ -454,14 +464,14 @@ class ProjectDataManager {
 
                 // Try to update by ID first if valid integer ID
                 if ($id > 0) {
-                    $existing = $DB->get_record('writeassistdev_ideas', [
+                    $existing = $DB->get_record('researchflow_ideas', [
                         'id' => $id,
-            'writeassistdevid' => $writeassistdevid,
+            'researchflowid' => $researchflowid,
             'userid' => $userid
         ]);
                     if ($existing) {
                         $record['id'] = $id;
-                        $DB->update_record('writeassistdev_ideas', $record);
+                        $DB->update_record('researchflow_ideas', $record);
                         error_log('Idea update: ID ' . $id);
                         $idMappings[$id] = $id; // Map to itself
                         continue;
@@ -470,31 +480,31 @@ class ProjectDataManager {
 
                 // Check for duplicate by content + location + sectionId before inserting
                 $conditions = [
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid,
                     'location' => $location
                 ];
                 
                 // Handle section_id NULL properly
                 if ($sectionId === null) {
-                    $sql = "SELECT * FROM {writeassistdev_ideas} 
-                            WHERE writeassistdevid = :writeassistdevid 
+                    $sql = "SELECT * FROM {researchflow_ideas} 
+                            WHERE researchflowid = :researchflowid 
                             AND userid = :userid 
                             AND location = :location 
                             AND section_id IS NULL";
                     $params = [
-                        'writeassistdevid' => $writeassistdevid,
+                        'researchflowid' => $researchflowid,
                         'userid' => $userid,
                         'location' => $location
                     ];
                 } else {
-                    $sql = "SELECT * FROM {writeassistdev_ideas} 
-                            WHERE writeassistdevid = :writeassistdevid 
+                    $sql = "SELECT * FROM {researchflow_ideas} 
+                            WHERE researchflowid = :researchflowid 
                             AND userid = :userid 
                             AND location = :location 
                             AND section_id = :section_id";
                     $params = [
-                        'writeassistdevid' => $writeassistdevid,
+                        'researchflowid' => $researchflowid,
                         'userid' => $userid,
                         'location' => $location,
                         'section_id' => $sectionId
@@ -518,7 +528,7 @@ class ProjectDataManager {
                     // Update existing duplicate instead of creating new
                     // Update existing duplicate instead of creating new
                     $record['id'] = $existingId;
-                    $DB->update_record('writeassistdev_ideas', $record);
+                    $DB->update_record('researchflow_ideas', $record);
                     error_log('Idea update (duplicate prevention): ID ' . $existingId);
                     
                     // Map client ID (which might be temp) to the existing DB ID
@@ -528,7 +538,7 @@ class ProjectDataManager {
                 } else {
                     // Insert new
                     $record['created_at'] = $now;
-                    $newid = $DB->insert_record('writeassistdev_ideas', $record);
+                    $newid = $DB->insert_record('researchflow_ideas', $record);
                     error_log('Idea insert: new ID ' . $newid);
                     
                     // Map client ID to new DB ID
@@ -548,12 +558,12 @@ class ProjectDataManager {
     
     /**
      * Save content to normalized table
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param array $content Content array
      * @param string $phase Phase name
      */
-    private function saveContent($writeassistdevid, $userid, $content, $phase) {
+    private function saveContent($researchflowid, $userid, $content, $phase) {
         global $DB;
         
         // Allow saving even if content is empty (user might clear it)
@@ -565,7 +575,7 @@ class ProjectDataManager {
         
         $now = time();
         $record = [
-            'writeassistdevid' => $writeassistdevid,
+            'researchflowid' => $researchflowid,
             'userid' => $userid,
             'phase' => $phase,
             'content' => $contentText,
@@ -573,8 +583,8 @@ class ProjectDataManager {
             'modified_at' => $now
         ];
         
-        $existing = $DB->get_record('writeassistdev_content', [
-            'writeassistdevid' => $writeassistdevid,
+        $existing = $DB->get_record('researchflow_content', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid,
             'phase' => $phase
         ]);
@@ -592,26 +602,26 @@ class ProjectDataManager {
             
             // Create version if manual save OR significant change
             $shouldCreateVersion = $changeSummary === 'Manual save' || (
-                $contentChanged && $wordDiff >= \mod_writeassistdev\data\VersionManager::AUTO_SAVE_THRESHOLD
+                $contentChanged && $wordDiff >= \mod_researchflow\data\VersionManager::AUTO_SAVE_THRESHOLD
             );
             
             error_log("saveContent($phase): shouldCreateVersion=" . ($shouldCreateVersion ? 'YES' : 'NO'));
             
             $record['id'] = $existing->id;
             $record['created_at'] = $existing->created_at; // Keep original creation time
-            $DB->update_record('writeassistdev_content', $record);
+            $DB->update_record('researchflow_content', $record);
             error_log("saveContent($phase): UPDATED existing record ID=" . $existing->id);
         } else {
             $shouldCreateVersion = true; // Always create version for first save
             $record['created_at'] = $now;
-            $newid = $DB->insert_record('writeassistdev_content', $record);
+            $newid = $DB->insert_record('researchflow_content', $record);
             error_log("saveContent($phase): INSERTED new record ID=" . $newid);
         }
         
         // Save version snapshot if needed
         if ($shouldCreateVersion) {
-            $versionNumber = \mod_writeassistdev\data\VersionManager::saveVersion(
-                $writeassistdevid,
+            $versionNumber = \mod_researchflow\data\VersionManager::saveVersion(
+                $researchflowid,
                 $userid,
                 $phase,
                 $contentText,
@@ -626,11 +636,11 @@ class ProjectDataManager {
     
     /**
      * Save chat to normalized table (APPEND MODE - Preserves History)
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param array $chatHistory Chat history array
      */
-    private function saveChat($writeassistdevid, $userid, $chatHistory) {
+    private function saveChat($researchflowid, $userid, $chatHistory) {
         global $DB;
         
         try {
@@ -640,14 +650,18 @@ class ProjectDataManager {
             foreach ($chatHistory as $index => $message) {
                 error_log("Processing chat message $index: " . json_encode($message));
                 
-                // Ensure timestamp is an integer
-                $timestamp = $message['timestamp'] ?? time();
-                if (is_string($timestamp)) {
-                    $timestamp = strtotime($timestamp);
-                    if ($timestamp === false) {
-                        $timestamp = time();
-                    }
+                // Parse timestamp - normalize to Unix for conversion, then to DB format
+                $timestampRaw = $message['timestamp'] ?? time();
+                if (is_string($timestampRaw)) {
+                    $timestampUnix = strtotime($timestampRaw);
+                    $timestampUnix = ($timestampUnix !== false) ? $timestampUnix : time();
+                } else if (is_numeric($timestampRaw)) {
+                    $timestampUnix = ($timestampRaw > 10000000000) ? (int)($timestampRaw / 1000) : (int)$timestampRaw;
+                } else {
+                    $timestampUnix = time();
                 }
+                // DB uses TIMESTAMP type - pass as Y-m-d H:i:s string
+                $timestampStr = date('Y-m-d H:i:s', $timestampUnix);
                 
                 // Validate required fields
                 if (!isset($message['role']) || !isset($message['content'])) {
@@ -655,13 +669,16 @@ class ProjectDataManager {
                     continue;
                 }
                 
-                // Check if message already exists to prevent duplicates
-                $existing = $DB->record_exists('writeassistdev_chat', [
-            'writeassistdevid' => $writeassistdevid,
+                $sessionId = $message['sessionId'] ?? 'default';
+                
+                // Check if message already exists to prevent duplicates (per session)
+                $existing = $DB->record_exists('researchflow_chat', [
+                    'researchflowid' => $researchflowid,
                     'userid' => $userid,
+                    'chat_session_id' => $sessionId,
                     'role' => $message['role'],
                     'content' => $message['content'],
-                    'timestamp' => $timestamp
+                    'timestamp' => $timestampStr
                 ]);
                 
                 if ($existing) {
@@ -669,16 +686,18 @@ class ProjectDataManager {
                     continue;
                 }
                 
-            $record = [
-                'writeassistdevid' => $writeassistdevid,
-                'userid' => $userid,
-                'role' => $message['role'],
-                'content' => $message['content'],
-                    'timestamp' => $timestamp
+                $record = [
+                    'researchflowid' => $researchflowid,
+                    'userid' => $userid,
+                    'chat_session_id' => $sessionId,
+                    'role' => $message['role'],
+                    'content' => $message['content'],
+                    'timestamp' => $timestampStr,
+                    'created_at' => time()
                 ];
                 
                 error_log('Inserting chat message: ' . json_encode($record));
-                $result = $DB->insert_record('writeassistdev_chat', $record);
+                $result = $DB->insert_record('researchflow_chat', $record);
                 error_log('Chat message insert result: ' . ($result ? 'SUCCESS (ID: ' . $result . ')' : 'FAILED'));
             }
             
@@ -692,20 +711,20 @@ class ProjectDataManager {
 
     /**
      * Delete a single idea by id for the given activity and user
-     * @param int $writeassistdevid
+     * @param int $researchflowid
      * @param int $userid
      * @param int $ideaId
      * @return bool
      */
-    public function deleteIdea($writeassistdevid, $userid, $ideaId) {
+    public function deleteIdea($researchflowid, $userid, $ideaId) {
         global $DB;
         try {
             if (empty($ideaId)) {
                 return false;
             }
-            return $DB->delete_records('writeassistdev_ideas', [
+            return $DB->delete_records('researchflow_ideas', [
                 'id' => $ideaId,
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
         } catch (\Exception $e) {
@@ -716,18 +735,18 @@ class ProjectDataManager {
 
     /**
      * Delete an idea by its fields (for cases where client does not know DB id)
-     * @param int $writeassistdevid
+     * @param int $researchflowid
      * @param int $userid
      * @param string $content
      * @param string $location
      * @param string|null $sectionId
      * @return bool
      */
-    public function deleteIdeaByFields($writeassistdevid, $userid, $content, $location, $sectionId = null) {
+    public function deleteIdeaByFields($researchflowid, $userid, $content, $location, $sectionId = null) {
         global $DB;
         try {
             // Log intent
-            error_log('deleteIdeaByFields: writeassistdevid=' . $writeassistdevid . ', userid=' . $userid . ', content=' . substr($content,0,120) . ', location=' . $location . ', sectionId=' . ($sectionId ?? 'NULL'));
+            error_log('deleteIdeaByFields: researchflowid=' . $researchflowid . ', userid=' . $userid . ', content=' . substr($content,0,120) . ', location=' . $location . ', sectionId=' . ($sectionId ?? 'NULL'));
 
             // Helper to normalize text for comparison
             $normalize = function($text) {
@@ -740,8 +759,8 @@ class ProjectDataManager {
             $targetContent = $normalize($content);
 
             // Step 1: Try strict SQL match (fast path)
-            $wheres = ['writeassistdevid = :wid', 'userid = :uid', 'location = :loc', 'content = :content'];
-            $sqlparams = [ 'wid' => $writeassistdevid, 'uid' => $userid, 'loc' => $location, 'content' => $content ];
+            $wheres = ['researchflowid = :wid', 'userid = :uid', 'location = :loc', 'content = :content'];
+            $sqlparams = [ 'wid' => $researchflowid, 'uid' => $userid, 'loc' => $location, 'content' => $content ];
             if ($sectionId === null || $sectionId === '') {
                 $wheres[] = 'section_id IS NULL';
             } else {
@@ -749,18 +768,18 @@ class ProjectDataManager {
                 $sqlparams['sid'] = $sectionId;
             }
             $where = implode(' AND ', $wheres);
-            $records = $DB->get_records_select('writeassistdev_ideas', $where, $sqlparams, '', 'id');
+            $records = $DB->get_records_select('researchflow_ideas', $where, $sqlparams, '', 'id');
             if (!empty($records)) {
                 foreach ($records as $rec) {
-                    $DB->delete_records('writeassistdev_ideas', ['id' => $rec->id]);
+                    $DB->delete_records('researchflow_ideas', ['id' => $rec->id]);
                 }
                 error_log('deleteIdeaByFields: strict match delete count = ' . count($records));
                 return true;
             }
 
             // Step 2: Fuzzy match by normalized content + same user/activity; optionally check location/sectionId
-            $candidates = $DB->get_records('writeassistdev_ideas', [
-                'writeassistdevid' => $writeassistdevid,
+            $candidates = $DB->get_records('researchflow_ideas', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ], '', 'id, content, location, section_id');
 
@@ -783,7 +802,7 @@ class ProjectDataManager {
                 return false;
             }
             foreach ($toDelete as $id) {
-                $DB->delete_records('writeassistdev_ideas', ['id' => $id]);
+                $DB->delete_records('researchflow_ideas', ['id' => $id]);
             }
             error_log('deleteIdeaByFields: fuzzy match delete count = ' . count($toDelete));
             return true;
@@ -796,21 +815,21 @@ class ProjectDataManager {
     /**
      * Save chat messages for a specific session (APPEND MODE - No Deletion)
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $sessionId Chat session ID
      * @param array $messages Array of messages to append
      * @param bool $clearExisting If true, clears existing messages first (default: false)
      * @return bool Success
      */
-    public function saveChatSession($writeassistdevid, $userid, $sessionId, $messages, $clearExisting = false) {
+    public function saveChatSession($researchflowid, $userid, $sessionId, $messages, $clearExisting = false) {
         global $DB;
         
         try {
             // Only clear if explicitly requested
             if ($clearExisting) {
-                $DB->delete_records('writeassistdev_chat', [
-                    'writeassistdevid' => $writeassistdevid,
+                $DB->delete_records('researchflow_chat', [
+                    'researchflowid' => $researchflowid,
                     'userid' => $userid,
                     'chat_session_id' => $sessionId
                 ]);
@@ -819,8 +838,8 @@ class ProjectDataManager {
             // Insert new messages (append mode)
             foreach ($messages as $message) {
                 // Check if message already exists to prevent duplicates
-                $existing = $DB->record_exists('writeassistdev_chat', [
-                    'writeassistdevid' => $writeassistdevid,
+                $existing = $DB->record_exists('researchflow_chat', [
+                    'researchflowid' => $researchflowid,
                     'userid' => $userid,
                     'chat_session_id' => $sessionId,
                     'content' => $message['content'],
@@ -829,7 +848,7 @@ class ProjectDataManager {
                 
                 if (!$existing) {
                     $record = [
-                        'writeassistdevid' => $writeassistdevid,
+                        'researchflowid' => $researchflowid,
                         'userid' => $userid,
                         'chat_session_id' => $sessionId,
                         'role' => $message['role'],
@@ -838,7 +857,7 @@ class ProjectDataManager {
                         'created_at' => time()
                     ];
                     
-                    $DB->insert_record('writeassistdev_chat', $record);
+                    $DB->insert_record('researchflow_chat', $record);
                 }
             }
             
@@ -852,27 +871,38 @@ class ProjectDataManager {
     /**
      * Load ONLY chat history (fast, for initialization)
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
+     * @param int|null $limit Maximum number of messages to return
+     * @param string|null $sessionId Optional session ID to filter by. When null, returns all messages.
+     *                               When 'chat-1', also includes 'default' for backward compatibility.
      * @return array Array of chat messages
      */
-    public function loadChatHistoryOnly($writeassistdevid, $userid, $limit = null) {
+    public function loadChatHistoryOnly($researchflowid, $userid, $limit = null, $sessionId = null) {
         global $DB;
         
         try {
-            // Load ONLY chat messages (not metadata, ideas, or content)
-            // Sort by timestamp DESC to get latest messages first (for pagination)
             $params = [
-                'writeassistdevid' => $writeassistdevid,
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ];
             
-            // Use SQL directly to support LIMIT for better performance
-            $sql = "SELECT id, role, content, timestamp 
-                    FROM {writeassistdev_chat} 
-                    WHERE writeassistdevid = :writeassistdevid 
-                    AND userid = :userid 
-                    ORDER BY timestamp DESC";
+            $sql = "SELECT id, role, content, timestamp, created_at 
+                    FROM {researchflow_chat} 
+                    WHERE researchflowid = :researchflowid 
+                    AND userid = :userid";
+            
+            if ($sessionId !== null && $sessionId !== '') {
+                if ($sessionId === 'chat-1') {
+                    $sql .= " AND (chat_session_id = :sessionid OR chat_session_id = 'default')";
+                    $params['sessionid'] = $sessionId;
+                } else {
+                    $sql .= " AND chat_session_id = :sessionid";
+                    $params['sessionid'] = $sessionId;
+                }
+            }
+            
+            $sql .= " ORDER BY timestamp DESC";
             
             if ($limit !== null && $limit > 0) {
                 $sql .= " LIMIT " . intval($limit);
@@ -882,11 +912,23 @@ class ProjectDataManager {
             
             $chatHistory = [];
             foreach ($chatRecords as $record) {
+                // Convert to Unix timestamp for timezone-safe client display
+                $ts = $record->timestamp;
+                if (is_numeric($ts) && $ts > 0) {
+                    $ts = (int) $ts;
+                } elseif ($ts instanceof \DateTimeInterface) {
+                    $ts = $ts->getTimestamp();
+                } elseif (is_string($ts) && $ts !== '') {
+                    $parsed = strtotime($ts);
+                    $ts = ($parsed !== false) ? $parsed : (int) ($record->created_at ?? time());
+                } else {
+                    $ts = isset($record->created_at) ? (int) $record->created_at : time();
+                }
                 $chatHistory[] = [
                     'id' => $record->id,
                     'role' => $record->role,
                     'content' => $record->content,
-                    'timestamp' => $record->timestamp
+                    'timestamp' => $ts
                 ];
             }
             
@@ -900,16 +942,16 @@ class ProjectDataManager {
     /**
      * Load chat messages for a specific session
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @param string $sessionId Chat session ID
      * @return array Array of messages
      */
-    public function loadChatSession($writeassistdevid, $userid, $sessionId) {
+    public function loadChatSession($researchflowid, $userid, $sessionId) {
         global $DB;
         
-        $messages = $DB->get_records('writeassistdev_chat', [
-            'writeassistdevid' => $writeassistdevid,
+        $messages = $DB->get_records('researchflow_chat', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid,
             'chat_session_id' => $sessionId
         ], 'timestamp ASC');
@@ -929,23 +971,23 @@ class ProjectDataManager {
     /**
      * Get all chat sessions for a user and activity
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @return array Array of chat sessions with messages
      */
-    public function getAllChatSessions($writeassistdevid, $userid) {
+    public function getAllChatSessions($researchflowid, $userid) {
         global $DB;
         
         // Get all sessions
-        $sessions = $DB->get_records('writeassistdev_chat_sessions', [
-            'writeassistdevid' => $writeassistdevid,
+        $sessions = $DB->get_records('researchflow_chat_sessions', [
+            'researchflowid' => $researchflowid,
             'userid' => $userid
         ], 'created_at DESC');
         
         $result = [];
         foreach ($sessions as $session) {
             // Get messages for this session
-            $messages = $this->loadChatSession($writeassistdevid, $userid, $session->session_id);
+            $messages = $this->loadChatSession($researchflowid, $userid, $session->session_id);
             
             $result[$session->session_id] = [
                 'session_id' => $session->session_id,
@@ -961,36 +1003,36 @@ class ProjectDataManager {
     }
     /**
      * Get all submissions for an activity
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @return array Array of submission data
      */
-    public function getAllSubmissions($writeassistdevid) {
+    public function getAllSubmissions($researchflowid) {
         global $DB;
         
         try {
             // Get all users who have metadata for this activity
             $sql = "SELECT u.id, m.userid, m.modified_at as last_modified, 
                            u.firstname, u.lastname, u.email, u.picture, u.imagealt
-                    FROM {writeassistdev_metadata} m
+                    FROM {researchflow_metadata} m
                     JOIN {user} u ON m.userid = u.id
-                    WHERE m.writeassistdevid = :writeassistdevid
+                    WHERE m.researchflowid = :researchflowid
                     ORDER BY u.lastname, u.firstname";
             
-            $submissions = $DB->get_records_sql($sql, ['writeassistdevid' => $writeassistdevid]);
+            $submissions = $DB->get_records_sql($sql, ['researchflowid' => $researchflowid]);
             
             // Enrich with word counts
             foreach ($submissions as $submission) {
                 // Get write phase word count
-                $writeContent = $DB->get_record('writeassistdev_content', [
-                    'writeassistdevid' => $writeassistdevid,
+                $writeContent = $DB->get_record('researchflow_content', [
+                    'researchflowid' => $researchflowid,
                     'userid' => $submission->userid,
                     'phase' => 'write'
                 ], 'word_count');
                 $submission->write_word_count = $writeContent ? $writeContent->word_count : 0;
                 
                 // Get edit phase word count
-                $editContent = $DB->get_record('writeassistdev_content', [
-                    'writeassistdevid' => $writeassistdevid,
+                $editContent = $DB->get_record('researchflow_content', [
+                    'researchflowid' => $researchflowid,
                     'userid' => $submission->userid,
                     'phase' => 'edit'
                 ], 'word_count');
@@ -1007,24 +1049,24 @@ class ProjectDataManager {
     /**
      * Submit the project
      * 
-     * @param int $writeassistdevid Activity ID
+     * @param int $researchflowid Activity ID
      * @param int $userid User ID
      * @return bool Success status
      */
-    public function submitProject($writeassistdevid, $userid) {
+    public function submitProject($researchflowid, $userid) {
         global $DB;
         
         try {
-            error_log("submitProject called for activity $writeassistdevid, user $userid");
+            error_log("submitProject called for activity $researchflowid, user $userid");
 
             // Check if metadata exists
-            $metadata = $DB->get_record('writeassistdev_metadata', [
-                'writeassistdevid' => $writeassistdevid,
+            $metadata = $DB->get_record('researchflow_metadata', [
+                'researchflowid' => $researchflowid,
                 'userid' => $userid
             ]);
             
             if (!$metadata) {
-                error_log("submitProject: Metadata not found for activity $writeassistdevid, user $userid");
+                error_log("submitProject: Metadata not found for activity $researchflowid, user $userid");
                 return false;
             }
             
@@ -1037,7 +1079,7 @@ class ProjectDataManager {
             $metadata->status = 'submitted';
             $metadata->modified_at = time();
             
-            $result = $DB->update_record('writeassistdev_metadata', $metadata);
+            $result = $DB->update_record('researchflow_metadata', $metadata);
             error_log("submitProject: update_record result: " . ($result ? 'SUCCESS' : 'FAILED'));
             
             return $result;

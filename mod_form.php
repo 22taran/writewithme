@@ -6,8 +6,8 @@
 // (at your option) any later version.
 
 /**
- * Definition of the form for the writeassistdev module
- * @package    mod_writeassistdev
+ * Definition of the form for the researchflow module
+ * @package    mod_researchflow
  * @copyright  2025 Mitchell Petingola <mpetingola@algomau.ca>, Tarandeep Singh <tarandesingh@algomau.ca>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -17,9 +17,9 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
 /**
- * Form for creating/editing a writeassistdev instance
+ * Form for creating/editing a researchflow instance
  */
-class mod_writeassistdev_mod_form extends moodleform_mod {
+class mod_researchflow_mod_form extends moodleform_mod {
 
     /**
      * Defines the form elements
@@ -63,32 +63,32 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
         $mform->addRule('name', null, 'required', null, 'client');
 
         // Adding the standard "intro" field.
-        $mform->addElement('editor', 'intro', get_string('description', 'mod_writeassistdev'));
+        $mform->addElement('editor', 'intro', get_string('description', 'mod_researchflow'));
         $mform->setType('intro', PARAM_RAW);
 
         // Adding template selector
         $templates = $this->get_available_templates();
-        $mform->addElement('select', 'template', get_string('template', 'mod_writeassistdev'), $templates);
+        $mform->addElement('select', 'template', get_string('template', 'mod_researchflow'), $templates);
         $mform->setType('template', PARAM_TEXT);
-        $mform->addHelpButton('template', 'template', 'mod_writeassistdev');
+        $mform->addHelpButton('template', 'template', 'mod_researchflow');
         $mform->setDefault('template', 'argumentative'); // Default to argumentative essay
 
         // Add instructor goals for each tab
-        $mform->addElement('header', 'goals', get_string('goals', 'mod_writeassistdev'));
+        $mform->addElement('header', 'goals', get_string('goals', 'mod_researchflow'));
         
-        $mform->addElement('textarea', 'plan_goal', get_string('plan_goal', 'mod_writeassistdev'), array('rows' => 3, 'cols' => 60));
+        $mform->addElement('textarea', 'plan_goal', get_string('plan_goal', 'mod_researchflow'), array('rows' => 3, 'cols' => 60));
         $mform->setType('plan_goal', PARAM_TEXT);
-        $mform->addHelpButton('plan_goal', 'plan_goal', 'mod_writeassistdev');
+        $mform->addHelpButton('plan_goal', 'plan_goal', 'mod_researchflow');
         $mform->setDefault('plan_goal', '');
         
-        $mform->addElement('textarea', 'write_goal', get_string('write_goal', 'mod_writeassistdev'), array('rows' => 3, 'cols' => 60));
+        $mform->addElement('textarea', 'write_goal', get_string('write_goal', 'mod_researchflow'), array('rows' => 3, 'cols' => 60));
         $mform->setType('write_goal', PARAM_TEXT);
-        $mform->addHelpButton('write_goal', 'write_goal', 'mod_writeassistdev');
+        $mform->addHelpButton('write_goal', 'write_goal', 'mod_researchflow');
         $mform->setDefault('write_goal', '');
         
-        $mform->addElement('textarea', 'edit_goal', get_string('edit_goal', 'mod_writeassistdev'), array('rows' => 3, 'cols' => 60));
+        $mform->addElement('textarea', 'edit_goal', get_string('edit_goal', 'mod_researchflow'), array('rows' => 3, 'cols' => 60));
         $mform->setType('edit_goal', PARAM_TEXT);
-        $mform->addHelpButton('edit_goal', 'edit_goal', 'mod_writeassistdev');
+        $mform->addHelpButton('edit_goal', 'edit_goal', 'mod_researchflow');
         $mform->setDefault('edit_goal', '');
 
         // Outline Structure ---------------------------------------------------------
@@ -126,20 +126,20 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
         $mform->addElement('textarea', 'custom_outline', 'Outline Sections (JSON)', 
             array('rows' => 15, 'cols' => 80, 'wrap' => 'off'));
         $mform->setType('custom_outline', PARAM_RAW);
-        $mform->addHelpButton('custom_outline', 'outline_structure', 'mod_writeassistdev');
+        $mform->addHelpButton('custom_outline', 'outline_structure', 'mod_researchflow');
         $mform->setDefault('custom_outline', $defaultoutline);
 
         // Availability ---------------------------------------------------------------
         $mform->addElement('header', 'accesscontrol', get_string('availability', 'core'));
 
         $mform->addElement('date_time_selector', 'startdate', 'Start date', array('optional' => true));
-        $mform->addHelpButton('startdate', 'startdate', 'mod_writeassistdev');
+        $mform->addHelpButton('startdate', 'startdate', 'mod_researchflow');
 
         $mform->addElement('date_time_selector', 'duedate', 'Due date', array('optional' => true));
-        $mform->addHelpButton('duedate', 'duedate', 'mod_writeassistdev');
+        $mform->addHelpButton('duedate', 'duedate', 'mod_researchflow');
 
         $mform->addElement('date_time_selector', 'enddate', 'End date', array('optional' => true));
-        $mform->addHelpButton('enddate', 'enddate', 'mod_writeassistdev');
+        $mform->addHelpButton('enddate', 'enddate', 'mod_researchflow');
 
         // Get course context safely - check if course exists
         global $COURSE;
@@ -156,7 +156,7 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
                 // To be removed (deprecated) with MDL-67526.
                 if (!empty($CFG->enableplagiarism)) {
                     require_once($CFG->libdir . '/plagiarismlib.php');
-                    plagiarism_get_form_elements_module($mform, $coursecontext, 'mod_writeassistdev');
+                    plagiarism_get_form_elements_module($mform, $coursecontext, 'mod_researchflow');
                 }
             } catch (Exception $e) {
                 // Course context not available, skip plagiarism elements
@@ -294,9 +294,9 @@ class mod_writeassistdev_mod_form extends moodleform_mod {
     private function get_available_templates() {
         global $CFG;
         
-        $templates = array('' => get_string('select_template', 'mod_writeassistdev'));
+        $templates = array('' => get_string('select_template', 'mod_researchflow'));
         
-        $templatesFile = $CFG->dirroot . '/mod/writeassistdev/data/templates/templates.json';
+        $templatesFile = $CFG->dirroot . '/mod/researchflow/data/templates/templates.json';
         if (file_exists($templatesFile)) {
             $templatesData = json_decode(file_get_contents($templatesFile), true);
             if (isset($templatesData['templates'])) {

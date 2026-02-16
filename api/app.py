@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -6,8 +7,27 @@ from agent import WritingAgent
 # Load environment variables
 load_dotenv()
 
+# API key for authentication (empty = skip auth in dev mode)
+API_KEY = os.getenv('WRITEASSIST_API_KEY', '').strip()
+
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+
+@app.before_request
+def check_api_key():
+    """Validate API key for /api/* routes. Skip if WRITEASSIST_API_KEY is not set."""
+    if not API_KEY:
+        return None  # No key configured, allow all (dev mode)
+    if request.path == '/health':
+        return None  # Health check is unauthenticated
+    if not request.path.startswith('/api/'):
+        return None
+    key = request.headers.get('X-API-Key') or request.headers.get('Authorization', '').replace('Bearer ', '')
+    if key != API_KEY:
+        return jsonify({'error': 'Unauthorized', 'assistantReply': 'Invalid or missing API key.'}), 401
+    return None
+
 
 # Initialize the writing agent
 try:
@@ -117,4 +137,4 @@ def chat():
     
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5002, host='0.0.0.0')
+    app.run(debug=True, port=5004, host='0.0.0.0')
